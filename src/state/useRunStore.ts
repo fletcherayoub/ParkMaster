@@ -8,11 +8,13 @@ interface RunState {
   coinsThisRun: number;
   score: number;
   isPlaying: boolean;
+  isPaused: boolean;
 
   startRun: (mode: 'endless' | 'daily') => void;
   endRun: () => void;
   addCoins: (n: number) => void;
   setScore: (n: number) => void;
+  setPaused: (paused: boolean) => void;
 }
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -21,6 +23,7 @@ export const useRunStore = create<RunState>((set, get) => ({
   coinsThisRun: 0,
   score: 0,
   isPlaying: false,
+  isPaused: false,
 
   startRun: (mode) =>
     set({
@@ -29,11 +32,14 @@ export const useRunStore = create<RunState>((set, get) => ({
       coinsThisRun: 0,
       score: 0,
       isPlaying: true,
+      isPaused: false,
     }),
 
-  endRun: () => set({ isPlaying: false }),
+  endRun: () => set({ isPlaying: false, isPaused: false }),
 
   addCoins: (n) => set((s) => ({ coinsThisRun: s.coinsThisRun + n })),
 
   setScore: (n) => set({ score: n }),
+
+  setPaused: (paused) => set({ isPaused: paused }),
 }));

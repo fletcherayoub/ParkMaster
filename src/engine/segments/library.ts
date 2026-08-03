@@ -1,10 +1,21 @@
 import { RNG } from '../../utils/rng';
 import { SegmentDefinition, SegmentGeometry, SegmentObstacle } from './types';
 
-function coinRow(rng: RNG, count: number): SegmentObstacle[] {
+function powerupOrCoinRow(rng: RNG, count: number): SegmentObstacle[] {
   const out: SegmentObstacle[] = [];
+  const roll = rng.next();
+  if (roll > 0.85) {
+    out.push({ kind: 'shield', x: rng.float(-0.3, 0.3), t: 0.5 });
+  } else if (roll > 0.72) {
+    out.push({ kind: 'magnet', x: rng.float(-0.3, 0.3), t: 0.5 });
+  } else if (roll > 0.35) { // Spawn fuel more frequently (37% chance up from 23%)
+    out.push({ kind: 'fuel', x: rng.float(-0.4, 0.4), t: 0.4 });
+  } else if (roll > 0.15) {
+    out.push({ kind: 'car', x: rng.float(-0.5, 0.5), t: 0.3, carVariant: rng.int(1, 9) });
+  }
+
   for (let i = 0; i < count; i++) {
-    out.push({ kind: 'coin', x: rng.float(-0.3, 0.3), t: (i + 1) / (count + 1) });
+    out.push({ kind: 'coin', x: rng.float(-0.4, 0.4), t: (i + 1) / (count + 1) });
   }
   return out;
 }
@@ -20,7 +31,7 @@ export const SEGMENT_LIBRARY: SegmentDefinition[] = [
       widthStart: 1,
       widthEnd: 1,
       curveBias: rng.float(-0.15, 0.15),
-      obstacles: rng.next() > 0.4 ? coinRow(rng, rng.int(2, 4)) : [],
+      obstacles: powerupOrCoinRow(rng, rng.int(2, 4)),
     }),
   },
   {
@@ -36,9 +47,9 @@ export const SEGMENT_LIBRARY: SegmentDefinition[] = [
         widthEnd: 1,
         curveBias: rng.next() > 0.5 ? sway : -sway,
         obstacles: [
-          { kind: 'wall', x: rng.float(-0.6, -0.2), t: 0.3 },
-          { kind: 'wall', x: rng.float(0.2, 0.6), t: 0.7 },
-          ...coinRow(rng, 2),
+          { kind: 'car', x: rng.float(-0.5, -0.2), t: 0.3, carVariant: rng.int(1, 9) },
+          { kind: 'car', x: rng.float(0.2, 0.5), t: 0.7, carVariant: rng.int(1, 9) },
+          ...powerupOrCoinRow(rng, 2),
         ],
       };
     },
@@ -55,7 +66,7 @@ export const SEGMENT_LIBRARY: SegmentDefinition[] = [
         widthStart: 1,
         widthEnd: pinch,
         curveBias: rng.float(-0.2, 0.2),
-        obstacles: coinRow(rng, 3), // near-miss reward: coins sit inside the pinch
+        obstacles: powerupOrCoinRow(rng, 3),
       };
     },
   },
@@ -71,11 +82,11 @@ export const SEGMENT_LIBRARY: SegmentDefinition[] = [
       curveBias: rng.float(-0.3, 0.3),
       obstacles: [
         {
-          kind: 'movingGate',
+          kind: 'police',
           x: 0,
           t: 0.5,
-          amplitude: 0.35 + difficulty * 0.3,
-          speed: 1 + difficulty * 1.5,
+          amplitude: 0.38 + difficulty * 0.15,
+          speed: 0.5 + difficulty * 0.4,
         },
       ],
     }),
@@ -90,7 +101,11 @@ export const SEGMENT_LIBRARY: SegmentDefinition[] = [
       widthStart: 1,
       widthEnd: 1,
       curveBias: 0,
-      obstacles: [{ kind: 'gem', x: 0, t: 0.5 }],
+      obstacles: [
+        { kind: 'gem', x: rng.float(-0.2, 0.2), t: 0.5 },
+        { kind: 'shield', x: -0.3, t: 0.8 },
+        { kind: 'fuel', x: 0.3, t: 0.8 } // Guaranteed fuel canister in boost segments
+      ],
     }),
   },
 ];

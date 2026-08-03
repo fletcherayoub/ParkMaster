@@ -55,7 +55,7 @@ export class TrackGenerator {
     // drop segments fully behind the ball to bound memory on long endless runs
     while (
       this.segments.length > 2 &&
-      this.segmentStartDistance[1] + this.segments[0].length < distanceTraveled - 50
+      this.segmentStartDistance[0] + this.segments[0].length < distanceTraveled - 50
     ) {
       this.segments.shift();
       this.segmentStartDistance.shift();

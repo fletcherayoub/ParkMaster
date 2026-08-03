@@ -21,7 +21,7 @@ interface PlayerState {
   claimDailyReward: () => { streakDays: number; coinsAwarded: number } | null;
 }
 
-const DEFAULT_SKIN = 'classic';
+const DEFAULT_SKIN = 'bike';
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD, UTC-based

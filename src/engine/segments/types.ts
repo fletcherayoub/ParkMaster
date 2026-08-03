@@ -4,14 +4,26 @@ export type SegmentKind = 'straight' | 'chicane' | 'gate' | 'boost' | 'narrow';
 
 /** A resolved obstacle/decoration placed within a segment, in local segment space */
 export interface SegmentObstacle {
-  kind: 'spike' | 'wall' | 'coin' | 'gem' | 'movingGate';
+  kind:
+    | 'car'
+    | 'police'
+    | 'fuel'
+    | 'wall'
+    | 'spike'
+    | 'coin'
+    | 'gem'
+    | 'shield'
+    | 'magnet';
   /** lateral position, -1 (left edge) .. 1 (right edge) */
   x: number;
   /** distance along the segment, 0..1 */
   t: number;
-  /** for movingGate: oscillation amplitude/speed */
+  /** for police/moving: oscillation amplitude/speed */
   amplitude?: number;
   speed?: number;
+  collected?: boolean;
+  /** which car image variant (1-9) to render; set once at spawn time */
+  carVariant?: number;
 }
 
 /** Concrete geometry for one generated segment instance */

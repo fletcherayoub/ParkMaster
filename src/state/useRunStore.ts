@@ -9,12 +9,15 @@ interface RunState {
   score: number;
   isPlaying: boolean;
   isPaused: boolean;
+  runMode: 'endless' | 'daily';
+  deathReason: 'fuel' | 'crash' | 'busted' | null;
 
   startRun: (mode: 'endless' | 'daily') => void;
   endRun: () => void;
   addCoins: (n: number) => void;
   setScore: (n: number) => void;
   setPaused: (paused: boolean) => void;
+  setDeathReason: (reason: 'fuel' | 'crash' | 'busted' | null) => void;
 }
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -24,6 +27,8 @@ export const useRunStore = create<RunState>((set, get) => ({
   score: 0,
   isPlaying: false,
   isPaused: false,
+  runMode: 'endless',
+  deathReason: null,
 
   startRun: (mode) =>
     set({
@@ -33,6 +38,8 @@ export const useRunStore = create<RunState>((set, get) => ({
       score: 0,
       isPlaying: true,
       isPaused: false,
+      runMode: mode,
+      deathReason: null,
     }),
 
   endRun: () => set({ isPlaying: false, isPaused: false }),
@@ -42,4 +49,6 @@ export const useRunStore = create<RunState>((set, get) => ({
   setScore: (n) => set({ score: n }),
 
   setPaused: (paused) => set({ isPaused: paused }),
+
+  setDeathReason: (reason) => set({ deathReason: reason }),
 }));

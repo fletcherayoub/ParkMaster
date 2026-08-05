@@ -27,7 +27,7 @@ export const PHYSICS_CONSTANTS = {
   LATERAL_FRICTION: 3.5, // per-second decay of lateral velocity
   DRIFT_STRENGTH: 0.28, // gentle drift
   RELEASE_FORCE_MAX: 2.8,
-  TRACK_HALF_WIDTH: 1, // matches lateralPos -1..1 range
+  TRACK_HALF_WIDTH: 0.85, // narrowed from 1.0 to 0.85 for stricter boundaries
 
   // Drag-tracking smoothing: how quickly lateralPos closes the gap toward
   // targetLateralPos each second. Higher = snappier/more responsive but more
@@ -93,7 +93,9 @@ export interface CollisionEvent {
     | 'car_crash'
     | 'busted'
     | 'shield_break'
-    | 'death';
+    | 'death'
+    | 'fuel_empty'
+    | 'off_road';
   x: number;
   y: number;
 }
@@ -123,7 +125,7 @@ export function stepPhysics(
   ball.fuel = Math.max(0, ball.fuel - 2.8 * dt);
   if (ball.fuel <= 0) {
     ball.alive = false;
-    onEvent?.({ type: 'death', x: ball.lateralPos, y: 0.6 });
+    onEvent?.({ type: 'fuel_empty', x: ball.lateralPos, y: 0.6 });
     return;
   }
 
@@ -166,7 +168,7 @@ export function stepPhysics(
       onEvent?.({ type: 'shield_break', x: ball.lateralPos, y: 0.6 });
     } else {
       ball.alive = false;
-      onEvent?.({ type: 'car_crash', x: ball.lateralPos, y: 0.6 });
+      onEvent?.({ type: 'off_road', x: ball.lateralPos, y: 0.6 });
       return;
     }
   }

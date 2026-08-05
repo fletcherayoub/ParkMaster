@@ -1,22 +1,22 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, Text as RNText, useWindowDimensions } from 'react-native';
 import {
   Canvas,
   Circle,
-  Path,
-  Skia,
-  Group,
-  Rect,
   DashPathEffect,
+  Group,
   Image,
-  useImage,
+  Path,
+  Rect,
+  Skia,
   SkImage,
+  useImage,
 } from '@shopify/react-native-skia';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import { useSharedValue, useDerivedValue, SharedValue } from 'react-native-reanimated';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Text as RNText, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { SharedValue, useDerivedValue, useSharedValue } from 'react-native-reanimated';
 
 import { SKINS } from '../data/skins';
-import { CollisionEvent, onPressIn, onPressOut, stepPhysics } from '../engine/physics';
+import { CollisionEvent, onPressIn, onPressOut, PHYSICS_CONSTANTS, stepPhysics } from '../engine/physics';
 import { SegmentObstacle } from '../engine/segments/types';
 import { usePlayerStore } from '../state/usePlayerStore';
 import { useRunStore } from '../state/useRunStore';
@@ -39,7 +39,7 @@ interface PopupText {
 }
 
 /** Crash/busted animation flash overlay type */
-type CrashFlashType = null | 'car_crash' | 'busted';
+type CrashFlashType = null | 'car_crash' | 'busted' | 'fuel_empty' | 'off_road';
 
 interface CarImages {
   /** Index 0-8 maps to car1…car9 */
@@ -72,6 +72,19 @@ function AnimatedObstacle({
   SCREEN_H,
   carImages,
 }: AnimatedObstacleProps) {
+  // Early return before hooks to avoid hook order issues
+  if (obs.collected) return null;
+
+  const [flashState, setFlashState] = useState(0);
+
+  useEffect(() => {
+    if (obs.kind !== 'police') return;
+    const interval = setInterval(() => {
+      setFlashState((prev) => (prev + 1) % 2);
+    }, 120);
+    return () => clearInterval(interval);
+  }, [obs.kind]);
+
   const obsWorldDist = segStartDist + obs.t * segLength;
 
   const cy = useDerivedValue(() => {
@@ -86,8 +99,6 @@ function AnimatedObstacle({
   }
 
   const screenX = (0.5 + currentX * 0.5) * SCREEN_W;
-
-  if (obs.collected) return null;
 
   if (obs.kind === 'coin') {
     const coinImg = carImages.coin;
@@ -232,25 +243,41 @@ function AnimatedObstacle({
     const W = 56;
     const H = 80;
     const policeImg = carImages.police;
-    if (policeImg) {
-      return (
-        <Image
-          image={policeImg}
-          x={screenX - W / 2}
-          y={cy}
-          width={W}
-          height={H}
-          fit="contain"
-        />
-      );
-    }
-    // Fallback while image is loading
+    const cyOffset = useDerivedValue(() => cy.value + 6);
+
     return (
       <Group>
-        <Rect x={screenX - 18} y={cy} width={36} height={52} color="#1A1F2C" />
-        <Rect x={screenX - 14} y={cy} width={28} height={28} color="#2196F3" />
-        <Circle cx={screenX - 7} cy={cy} r={5} color="#FF1744" />
-        <Circle cx={screenX + 7} cy={cy} r={5} color="#2979FF" />
+        {policeImg ? (
+          <Image
+            image={policeImg}
+            x={screenX - W / 2}
+            y={cy}
+            width={W}
+            height={H}
+            fit="contain"
+          />
+        ) : (
+          <Group>
+            <Rect x={screenX - 18} y={cy} width={36} height={52} color="#1A1F2C" />
+            <Rect x={screenX - 14} y={cy} width={28} height={28} color="#2196F3" />
+          </Group>
+        )}
+        
+        {/* Pulsing sirens on roof */}
+        <Circle
+          cx={screenX - 6}
+          cy={cyOffset}
+          r={9}
+          color="#FF1744"
+          opacity={flashState === 0 ? 0.75 : 0.15}
+        />
+        <Circle
+          cx={screenX + 6}
+          cy={cyOffset}
+          r={9}
+          color="#2979FF"
+          opacity={flashState === 1 ? 0.75 : 0.15}
+        />
       </Group>
     );
   } else if (obs.kind === 'wall' || obs.kind === 'spike') {
@@ -260,14 +287,42 @@ function AnimatedObstacle({
   return null;
 }
 
+interface Particle {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  size: number;
+  color?: string;
+}
+
+interface WindLine {
+  id: string;
+  x: number;
+  y: number;
+  length: number;
+  speed: number;
+}
+
+interface Theme {
+  bg: string;
+  road: string;
+  border: string;
+  centerLine: string;
+}
+
+const THEMES: Theme[] = [
+  { bg: '#0D0F17', road: '#161924', border: '#4FD1FF', centerLine: '#3B425E' },
+  { bg: '#170E1B', road: '#23162D', border: '#FF7A59', centerLine: '#54366A' },
+  { bg: '#0A070E', road: '#110C1A', border: '#FF2A75', centerLine: '#3A1E4A' },
+];
+
 export function GameCanvas() {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
-  const TRACK_VISUAL_WIDTH = SCREEN_W * 0.7;
+  const TRACK_VISUAL_WIDTH = SCREEN_W * 0.6; // Reduced from 0.7 to 0.6 to match stricter physics boundaries
 
-  // FIX #1: select individual fields instead of the whole store. Previously
-  // `useRunStore()` with no selector re-rendered this whole component every
-  // time ANY store field changed — including `score`, which changes almost
-  // every frame. That was the single biggest source of the lag.
   const isPlaying = useRunStore((s) => s.isPlaying);
   const endRun = useRunStore((s) => s.endRun);
   const setScore = useRunStore((s) => s.setScore);
@@ -289,19 +344,23 @@ export function GameCanvas() {
     segmentStartDistance: number[];
   }>({ segments: [], segmentStartDistance: [] });
 
-  // FIX #2: keep a ref mirror of the segment data length so the game-loop
-  // effect below never needs `activeSegmentData` in its dependency array.
-  // Previously the loop's own useEffect depended on
-  // `activeSegmentData.segments.length`, so every segment change tore down
-  // and rebuilt the requestAnimationFrame loop — resetting `lastTime` and
-  // `lastScoreInt` and causing a visible stutter roughly every 1-2 seconds,
-  // synced to track segment transitions.
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
+  const [themeIdx, setThemeIdx] = useState(0);
+  const themeIdxRef = useRef(0);
+  const currentTheme = THEMES[themeIdx];
+
+  // Vehicle steering tilt
+  const ballRotation = useSharedValue(0);
+
+  // Hyper-speed Wind Lines
+  const [windLines, setWindLines] = useState<WindLine[]>([]);
+  const windLinesRef = useRef<WindLine[]>([]);
+
   const activeSegmentDataRef = useRef(activeSegmentData);
   activeSegmentDataRef.current = activeSegmentData;
 
   // ─── Preload all car / police sprites via Skia's useImage ───────────────
-  // Each hook call must be unconditional (Rules of Hooks), so we call them
-  // all individually at the top level of this component.
   const rawCar1 = useImage(require('../../assets/cars/car1.png'));
   const rawCar2 = useImage(require('../../assets/cars/car2.png'));
   const rawCar3 = useImage(require('../../assets/cars/car3.png'));
@@ -319,7 +378,6 @@ export function GameCanvas() {
   const rawShield = useImage(require('../../assets/cars/sheald.png'));
   const rawGem = useImage(require('../../assets/cars/gem.png'));
 
-  /** Stable reference — only re-creates when individual images change */
   const carImages = useMemo<CarImages>(
     () => ({
       cars: [rawCar1, rawCar2, rawCar3, rawCar4, rawCar5, rawCar6, rawCar7, rawCar8, rawCar9],
@@ -331,15 +389,34 @@ export function GameCanvas() {
       shield: rawShield,
       gem: rawGem,
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [rawCar1, rawCar2, rawCar3, rawCar4, rawCar5, rawCar6, rawCar7, rawCar8, rawCar9, rawPolice, rawBike, rawFuel, rawCoin, rawMagnet, rawShield, rawGem]
   );
+
+  // Track Borders
+  const leftBorderX = SCREEN_W / 2 - TRACK_VISUAL_WIDTH / 2;
+  const rightBorderX = SCREEN_W / 2 + TRACK_VISUAL_WIDTH / 2;
 
   useEffect(() => {
     ballPx.value = SCREEN_W / 2;
     ballPy.value = SCREEN_H * 0.65;
     scrollDistance.value = 0;
-  }, [SCREEN_W, SCREEN_H, ballPx, ballPy, scrollDistance]);
+    ballRotation.value = 0;
+    setParticles([]);
+    particlesRef.current = [];
+    setThemeIdx(0);
+    themeIdxRef.current = 0;
+
+    // Initialize wind lines
+    const initialWind = Array.from({ length: 8 }).map((_, i) => ({
+      id: `wind-${i}`,
+      x: leftBorderX + Math.random() * TRACK_VISUAL_WIDTH,
+      y: Math.random() * SCREEN_H,
+      length: 40 + Math.random() * 80,
+      speed: 350 + Math.random() * 250,
+    }));
+    setWindLines(initialWind);
+    windLinesRef.current = initialWind;
+  }, [SCREEN_W, SCREEN_H, ballPx, ballPy, scrollDistance, leftBorderX, TRACK_VISUAL_WIDTH, ballRotation]);
 
   const triggerPopup = useCallback(
     (text: string, color: string, x: number, y: number) => {
@@ -361,6 +438,29 @@ export function GameCanvas() {
   const handleCollisionEvent = useCallback(
     (event: CollisionEvent) => {
       const screenX = (0.5 + event.x * 0.5) * SCREEN_W;
+      
+      // Spawn collection pops
+      if (event.type === 'coin' || event.type === 'gem' || event.type === 'fuel' || event.type === 'magnet' || event.type === 'shield') {
+        const popColor = event.type === 'coin' ? '#FFD54F' : event.type === 'gem' ? '#B388FF' : event.type === 'fuel' ? '#FFA000' : '#4FD1FF';
+        const currentParticles = [...particlesRef.current];
+        for (let k = 0; k < 6; k++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 70 + Math.random() * 110;
+          currentParticles.push({
+            id: Math.random().toString(),
+            x: screenX,
+            y: SCREEN_H * 0.65,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 50,
+            life: 1.0,
+            size: 2.5 + Math.random() * 3,
+            color: popColor,
+          });
+        }
+        particlesRef.current = currentParticles;
+        setParticles(currentParticles);
+      }
+
       if (event.type === 'coin') {
         addCoins(1);
         soundEngine.playCoinSound();
@@ -385,31 +485,53 @@ export function GameCanvas() {
         soundEngine.playCrashSound();
         triggerPopup('SHIELD BROKEN! 💥', '#FF7A59', screenX, 0.65);
       } else if (event.type === 'car_crash') {
-        // Car crash death — red flash + crash sound
         soundEngine.stopBGM();
         soundEngine.playCarCrashSFX();
         setCrashFlash('car_crash');
         triggerPopup('💥 CRASH!', '#FF4444', screenX, 0.65);
+        useRunStore.getState().setDeathReason('crash');
+      } else if (event.type === 'off_road') {
+        soundEngine.stopBGM();
+        soundEngine.playCarCrashSFX();
+        setCrashFlash('off_road');
+        triggerPopup('🛣️ OFF ROAD!', '#FF4444', screenX, 0.65);
+        useRunStore.getState().setDeathReason('crash');
       } else if (event.type === 'busted') {
-        // Police busted death — blue/red flash + busted sound
         soundEngine.stopBGM();
         soundEngine.playBustedSFX();
         setCrashFlash('busted');
         triggerPopup('🚨 BUSTED!', '#2979FF', screenX, 0.65);
+        useRunStore.getState().setDeathReason('busted');
+      } else if (event.type === 'fuel_empty') {
+        soundEngine.stopBGM();
+        soundEngine.playOutOfFuelSFX();
+        setCrashFlash('fuel_empty');
+        triggerPopup('⛽ OUT OF FUEL!', '#FFA000', screenX, 0.65);
+        useRunStore.getState().setDeathReason('fuel');
       } else if (event.type === 'death') {
         soundEngine.stopBGM();
         soundEngine.playCrashSound();
       }
     },
-    [addCoins, triggerPopup, SCREEN_W]
+    [addCoins, triggerPopup, SCREEN_W, SCREEN_H]
   );
 
   const handleRunEnd = useCallback(
     (distance: number) => {
       const finalScore = Math.floor(distance);
+      const runMode = useRunStore.getState().runMode;
+      const coinsThisRun = useRunStore.getState().coinsThisRun;
+
       setScore(finalScore);
-      usePlayerStore.getState().reportRunEnd(finalScore);
-      usePlayerStore.getState().addCoins(useRunStore.getState().coinsThisRun);
+      usePlayerStore.getState().reportRunEnd(finalScore, runMode);
+      usePlayerStore.getState().addCoins(coinsThisRun);
+
+      // Report to missions progress
+      const playerStore = usePlayerStore.getState();
+      playerStore.updateMissionProgress('distance', finalScore);
+      playerStore.updateMissionProgress('coins', coinsThisRun);
+      playerStore.updateMissionProgress('score', finalScore);
+
       // Delay endRun to let the crash/busted animation play
       setTimeout(() => {
         setCrashFlash(null);
@@ -422,11 +544,13 @@ export function GameCanvas() {
   useEffect(() => {
     if (!isPlaying) {
       soundEngine.stopBGM();
+      soundEngine.stopEngine();
       return;
     }
 
     setCrashFlash(null); // Reset any leftover crash overlay
     soundEngine.startBGM();
+    soundEngine.startEngine();
 
     let animationFrameId: number;
     let lastTime = performance.now();
@@ -441,13 +565,76 @@ export function GameCanvas() {
       const { ball, track, isPaused } = useRunStore.getState();
 
       if (ball.alive && !isPaused) {
+        soundEngine.startEngine();
         stepPhysics(ball, track.getVisibleSegments(), dt, Date.now(), handleCollisionEvent);
         track.update(ball.distance);
 
         ballPx.value = (0.5 + ball.lateralPos * 0.5) * SCREEN_W;
         scrollDistance.value = ball.distance;
 
-        // FIX #3: throttle the React-visible score update.
+        // Vehicle leaning tilt
+        ballRotation.value = Math.max(-0.25, Math.min(0.25, ball.lateralVelocity * 0.05));
+
+        // Pitch shift engine sound based on acceleration/speed
+        const speedRatio = ball.forwardSpeed / PHYSICS_CONSTANTS.MAX_FORWARD_SPEED;
+        const targetRate = 0.95 + speedRatio * 0.75; // ranges from 0.95 to 1.7
+        soundEngine.setEnginePitch(targetRate);
+
+        // Dynamic theme switching based on distance
+        const dist = ball.distance;
+        let nextIdx = 0;
+        if (dist > 1500) {
+          nextIdx = 2;
+        } else if (dist > 600) {
+          nextIdx = 1;
+        }
+        if (nextIdx !== themeIdxRef.current) {
+          themeIdxRef.current = nextIdx;
+          setThemeIdx(nextIdx);
+        }
+
+        // Particle Trail update
+        const currentParticles = [...particlesRef.current];
+        for (let i = currentParticles.length - 1; i >= 0; i--) {
+          const p = currentParticles[i];
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.life -= dt * 2.2;
+          if (p.life <= 0) {
+            currentParticles.splice(i, 1);
+          }
+        }
+        if (Math.random() < 0.45) {
+          currentParticles.push({
+            id: Math.random().toString(),
+            x: ballPx.value + (Math.random() - 0.5) * 8,
+            y: ballPy.value + 16,
+            vx: (Math.random() - 0.5) * 15,
+            vy: ball.forwardSpeed * 0.35 + Math.random() * 20,
+            life: 1.0,
+            size: 3 + Math.random() * 4,
+          });
+        }
+        particlesRef.current = currentParticles;
+        setParticles(currentParticles);
+
+        // Hyper speed wind lines
+        if (ball.forwardSpeed > 150) {
+          const nextWind = [...windLinesRef.current];
+          for (let i = 0; i < nextWind.length; i++) {
+            const w = nextWind[i];
+            w.y += w.speed * dt * (ball.forwardSpeed / 100);
+            if (w.y > SCREEN_H) {
+              w.y = -100 - Math.random() * 200;
+              w.x = leftBorderX + Math.random() * TRACK_VISUAL_WIDTH;
+              w.length = 40 + Math.random() * 80;
+              w.speed = 350 + Math.random() * 250;
+            }
+          }
+          windLinesRef.current = nextWind;
+          setWindLines(nextWind);
+        }
+
         const scoreInt = Math.floor(ball.distance);
         if (scoreInt !== lastScoreInt && now - lastScoreUiUpdate > SCORE_UI_THROTTLE_MS) {
           lastScoreInt = scoreInt;
@@ -470,9 +657,12 @@ export function GameCanvas() {
         }
 
         if (!ball.alive) {
+          soundEngine.stopEngine();
           handleRunEnd(ball.distance);
           return;
         }
+      } else {
+        soundEngine.stopEngine();
       }
 
       animationFrameId = requestAnimationFrame(loop);
@@ -489,8 +679,9 @@ export function GameCanvas() {
     return () => {
       cancelAnimationFrame(animationFrameId);
       soundEngine.stopBGM();
+      soundEngine.stopEngine();
     };
-  }, [isPlaying, handleRunEnd, handleCollisionEvent, setScore, ballPx, scrollDistance, SCREEN_W, SCREEN_H]);
+  }, [isPlaying, handleRunEnd, handleCollisionEvent, setScore, ballPx, scrollDistance, SCREEN_W, SCREEN_H, leftBorderX, TRACK_VISUAL_WIDTH, ballRotation]);
 
   const gesture = useMemo(
     () =>
@@ -515,10 +706,6 @@ export function GameCanvas() {
     [SCREEN_W]
   );
 
-  // Track Borders
-  const leftBorderX = SCREEN_W / 2 - TRACK_VISUAL_WIDTH / 2;
-  const rightBorderX = SCREEN_W / 2 + TRACK_VISUAL_WIDTH / 2;
-
   const trackBorderPath = useMemo(() => {
     const builder = Skia.PathBuilder.Make();
     builder.moveTo(leftBorderX, 0);
@@ -537,26 +724,29 @@ export function GameCanvas() {
 
   const roadPhase = useDerivedValue(() => -scrollDistance.value * 1.6);
 
-  // Note: this still reads ball.hasShield via getState() on every render,
-  // which won't reliably update the shield-ring visual on its own (no
-  // subscription). If the shield ring looks stale, drive it from a
-  // shared value set inside the physics loop instead (e.g. a
-  // `hasShield` SharedValue<boolean> updated alongside ballPx/ballPy),
-  // the same pattern already used for the ball position.
   const hasShield = useRunStore.getState().ball?.hasShield ?? false;
 
+  const playerTransform = useDerivedValue(() => [
+    { translateX: ballPx.value },
+    { translateY: ballPy.value },
+    { rotate: ballRotation.value },
+  ]);
+
   return (
-    <View style={styles.fill}>
+    <View style={[styles.fill, { backgroundColor: currentTheme.bg }]}>
       <GestureDetector gesture={gesture}>
         <View style={styles.fill}>
           <Canvas style={styles.fill}>
-            <Rect x={leftBorderX} y={0} width={TRACK_VISUAL_WIDTH} height={SCREEN_H} color="#161924" />
+            <Rect x={leftBorderX} y={0} width={TRACK_VISUAL_WIDTH} height={SCREEN_H} color={currentTheme.road} />
 
-            <Path path={centerLinePath} color="#3B425E" style="stroke" strokeWidth={4}>
+            <Path path={centerLinePath} color={currentTheme.centerLine} style="stroke" strokeWidth={4}>
               <DashPathEffect intervals={[24, 24]} phase={roadPhase} />
             </Path>
 
-            <Path path={trackBorderPath} color="#4FD1FF" style="stroke" strokeWidth={4} />
+            {/* Neon glowing aura borders */}
+            <Path path={trackBorderPath} color={`${currentTheme.border}33`} style="stroke" strokeWidth={14} />
+            {/* Primary border line */}
+            <Path path={trackBorderPath} color={currentTheme.border} style="stroke" strokeWidth={4} />
 
             {activeSegmentData.segments.map((seg, sIdx) => {
               const segStartDist = activeSegmentData.segmentStartDistance[sIdx];
@@ -574,29 +764,54 @@ export function GameCanvas() {
               ));
             })}
 
+            {particles.map((p) => (
+              <Circle
+                key={p.id}
+                cx={p.x}
+                cy={p.y}
+                r={p.size * p.life}
+                color={p.color ?? skin.trailColor}
+                opacity={p.life * 0.75}
+              />
+            ))}
+
+            {/* Wind Speed Lines */}
+            {useRunStore.getState().ball.forwardSpeed > 150 && windLines.map((w) => (
+              <Rect
+                key={w.id}
+                x={w.x}
+                y={w.y}
+                width={1.8}
+                height={w.length}
+                color="#FFFFFF"
+                opacity={0.16 * (useRunStore.getState().ball.forwardSpeed / PHYSICS_CONSTANTS.MAX_FORWARD_SPEED)}
+              />
+            ))}
+
             {hasShield && (
               <Circle cx={ballPx} cy={ballPy} r={BALL_RADIUS + 14} color="#4FD1FF55" style="stroke" strokeWidth={3} />
             )}
 
-            {/* Player vehicle — rendered as the equipped skin's PNG sprite */}
-            {playerImg ? (
-              <Image
-                image={playerImg}
-                x={ballPx}
-                y={ballPy}
-                width={48}
-                height={64}
-                fit="contain"
-                transform={[{ translateX: -24 }, { translateY: -32 }]}
-              />
-            ) : (
-              // Fallback circle while image loads
-              <Group>
-                <Circle cx={ballPx} cy={ballPy} r={BALL_RADIUS + 3} color={skin.glowColor} />
-                <Circle cx={ballPx} cy={ballPy} r={BALL_RADIUS} color={skin.color} />
-                <Circle cx={ballPx} cy={ballPy} r={BALL_RADIUS - 6} color="#FFFFFFaa" />
-              </Group>
-            )}
+            {/* Player vehicle Group with rotation matrix */}
+            <Group transform={playerTransform}>
+              {playerImg ? (
+                <Image
+                  image={playerImg}
+                  x={0}
+                  y={0}
+                  width={48}
+                  height={64}
+                  fit="contain"
+                  transform={[{ translateX: -24 }, { translateY: -32 }]}
+                />
+              ) : (
+                <Group>
+                  <Circle cx={0} cy={0} r={BALL_RADIUS + 3} color={skin.glowColor} />
+                  <Circle cx={0} cy={0} r={BALL_RADIUS} color={skin.color} />
+                  <Circle cx={0} cy={0} r={BALL_RADIUS - 6} color="#FFFFFFaa" />
+                </Group>
+              )}
+            </Group>
           </Canvas>
 
           {popups.map((popup) => (
@@ -628,6 +843,28 @@ export function GameCanvas() {
                 <RNText style={styles.bustedEmoji}>🚨</RNText>
                 <RNText style={styles.bustedTitle}>BUSTED!</RNText>
                 <RNText style={styles.crashSubtitle}>Police caught you</RNText>
+              </View>
+            </View>
+          )}
+
+          {crashFlash === 'fuel_empty' && (
+            <View style={styles.crashOverlay} pointerEvents="none">
+              <View style={styles.fuelFlash} />
+              <View style={styles.crashContent}>
+                <RNText style={styles.fuelEmoji}>⛽</RNText>
+                <RNText style={styles.fuelTitle}>OUT OF FUEL!</RNText>
+                <RNText style={styles.crashSubtitle}>Your tank is empty</RNText>
+              </View>
+            </View>
+          )}
+
+          {crashFlash === 'off_road' && (
+            <View style={styles.crashOverlay} pointerEvents="none">
+              <View style={styles.offRoadFlash} />
+              <View style={styles.crashContent}>
+                <RNText style={styles.offRoadEmoji}>🛣️</RNText>
+                <RNText style={styles.offRoadTitle}>OFF ROAD!</RNText>
+                <RNText style={styles.crashSubtitle}>You left the highway</RNText>
               </View>
             </View>
           )}
@@ -691,6 +928,40 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: '900',
     color: '#2979FF',
+    letterSpacing: 4,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 8,
+  },
+  fuelFlash: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(255, 160, 0, 0.4)',
+  },
+  fuelEmoji: {
+    fontSize: 72,
+    marginBottom: 8,
+  },
+  fuelTitle: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#FFA000',
+    letterSpacing: 4,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 8,
+  },
+  offRoadFlash: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(255, 68, 68, 0.4)',
+  },
+  offRoadEmoji: {
+    fontSize: 72,
+    marginBottom: 8,
+  },
+  offRoadTitle: {
+    fontSize: 48,
+    fontWeight: '900',
+    color: '#FF4444',
     letterSpacing: 4,
     textShadowColor: '#000',
     textShadowOffset: { width: 2, height: 2 },

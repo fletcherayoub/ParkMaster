@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "gameParking",
-    "slug": "gameParking",
-    "version": "1.0.0",
+    "name": "Highway Traffic",
+    "slug": "HighwayTraffic",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "gameparking",
@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.katomori.gameParking"
+      "package": "com.highwayTraffic.game"
     },
     "web": {
       "output": "static",

@@ -15,6 +15,7 @@ import { useDailyReward } from '@/state/useDailyReward';
 export default function GameScreen() {
   const isPlaying = useRunStore((s) => s.isPlaying);
   const isPaused = useRunStore((s) => s.isPaused);
+  const runMode = useRunStore((s) => s.runMode);
   const startRun = useRunStore((s) => s.startRun);
   const endRun = useRunStore((s) => s.endRun);
   const setPaused = useRunStore((s) => s.setPaused);
@@ -52,6 +53,16 @@ export default function GameScreen() {
     startRun('endless');
   };
 
+  const handleStartDailyGame = () => {
+    setHasStartedFirstRun(true);
+    startRun('daily');
+  };
+
+  const handleRetryGame = () => {
+    setHasStartedFirstRun(true);
+    startRun(runMode);
+  };
+
   const handleResume = () => {
     setPaused(false);
   };
@@ -69,13 +80,14 @@ export default function GameScreen() {
       {!hasStartedFirstRun && !isPlaying && (
         <StartMenu
           onStartGame={handleStartGame}
+          onStartDailyGame={handleStartDailyGame}
           onOpenShop={() => setShopVisible(true)}
         />
       )}
 
       {hasStartedFirstRun && !isPlaying && (
         <RetryOverlay
-          onRetry={handleStartGame}
+          onRetry={handleRetryGame}
           onOpenShop={() => setShopVisible(true)}
         />
       )}

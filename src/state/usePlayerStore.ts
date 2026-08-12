@@ -4,6 +4,9 @@ import { createMMKV } from 'react-native-mmkv';
 export const storage = createMMKV({ id: 'nudge-player' });
 
 interface PlayerState {
+  /** True once hydrate() has finished loading MMKV data into the store.
+   *  Guards the daily-reward hook so it never fires against zero defaults. */
+  hydrated: boolean;
   coins: number;
   gems: number;
   ownedSkins: string[];
@@ -17,6 +20,8 @@ interface PlayerState {
   completedMissions: string[];
   missionProgress: Record<string, number>;
 
+  hasCompletedTutorial: boolean;
+
   hydrate: () => void;
   addCoins: (n: number) => void;
   spendCoins: (n: number) => boolean;
@@ -28,12 +33,18 @@ interface PlayerState {
   setMusicVolume: (v: number) => void;
   updateMissionProgress: (key: string, value: number) => void;
   claimMissionReward: (id: string, reward: number) => void;
+  setCompletedTutorial: (completed: boolean) => void;
 }
 
 const DEFAULT_SKIN = 'bike';
 
 function todayKey(): string {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD, UTC-based
+  // Local calendar date — "new day" = midnight in the player's time zone, not UTC.
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function persist(state: Partial<PlayerState>) {
@@ -54,6 +65,7 @@ function load<T>(key: string, fallback: T): T {
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
+  hydrated: false,
   coins: 0,
   gems: 0,
   ownedSkins: [DEFAULT_SKIN],
@@ -66,9 +78,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   musicVolume: 0.5,
   completedMissions: [],
   missionProgress: {},
+  hasCompletedTutorial: false,
 
   hydrate: () =>
     set({
+      // Set hydrated: true so subscribers (e.g. useDailyReward) know all
+      // values below are real MMKV data, not the zero-value defaults.
+      hydrated: true,
       coins: load('coins', 0),
       gems: load('gems', 0),
       ownedSkins: load('ownedSkins', [DEFAULT_SKIN]),
@@ -81,6 +97,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       musicVolume: load('musicVolume', 0.5),
       completedMissions: load('completedMissions', []),
       missionProgress: load('missionProgress', {}),
+      hasCompletedTutorial: load('hasCompletedTutorial', false),
     }),
 
   addCoins: (n) =>
@@ -128,12 +145,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const today = todayKey();
     if (lastPlayedDate === today) return null; // already claimed today
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    // Build "yesterday" using the same local-date logic as todayKey() so the
+    // comparison is consistent (mixing toISOString UTC with local todayKey
+    // would silently break the streak for users not in UTC).
+    const yd = new Date(Date.now() - 86400000);
+    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
+
     const continuingStreak = lastPlayedDate === yesterday;
     const nextStreak = continuingStreak ? streakDays + 1 : 1;
 
-    // escalating reward, resets/loops after a 7-day cycle; day 7/30 handled in UI as milestones
-    const coinsAwarded = 20 + (nextStreak % 7) * 10;
+    // Escalating reward over a 7-day cycle.
+    // Day 1 = 20, Day 2 = 30 … Day 7 = 80, then loops.
+    // Fix: use (nextStreak - 1) % 7 so Day 7 = index 6 = +60, NOT 7%7=0 = +0.
+    const coinsAwarded = 20 + ((nextStreak - 1) % 7) * 10;
 
     const nextCoins = get().coins + coinsAwarded;
     persist({ streakDays: nextStreak, lastPlayedDate: today, coins: nextCoins });
@@ -172,5 +196,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       persist({ completedMissions, coins });
       return { completedMissions, coins };
     });
+  },
+
+  setCompletedTutorial: (completed) => {
+    persist({ hasCompletedTutorial: completed });
+    set({ hasCompletedTutorial: completed });
   },
 }));

@@ -22,6 +22,7 @@ export interface SegmentObstacle {
   amplitude?: number;
   speed?: number;
   collected?: boolean;
+  nearMissFlagged?: boolean;
   /** which car image variant (1-9) to render; set once at spawn time */
   carVariant?: number;
 }

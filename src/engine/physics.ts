@@ -17,6 +17,7 @@ export interface BallState {
   hasShield: boolean;
   magnetTimer: number; // seconds remaining
   shieldTimer: number;
+  comboCount: number; // consecutive pickups since last crash
 }
 
 export const PHYSICS_CONSTANTS = {
@@ -27,7 +28,7 @@ export const PHYSICS_CONSTANTS = {
   LATERAL_FRICTION: 3.5, // per-second decay of lateral velocity
   DRIFT_STRENGTH: 0.28, // gentle drift
   RELEASE_FORCE_MAX: 2.8,
-  TRACK_HALF_WIDTH: 0.85, // narrowed from 1.0 to 0.85 for stricter boundaries
+  TRACK_HALF_WIDTH: 1, // matches lateralPos -1..1 range
 
   // Drag-tracking smoothing: how quickly lateralPos closes the gap toward
   // targetLateralPos each second. Higher = snappier/more responsive but more
@@ -53,7 +54,12 @@ export function createInitialBallState(): BallState {
     hasShield: false, // No free shield — earn it!
     magnetTimer: 0,
     shieldTimer: 0,
+    comboCount: 0,
   };
+}
+
+export function getComboMultiplier(ball: BallState): number {
+  return Math.min(10, 1 + Math.floor(ball.comboCount / 5));
 }
 
 /** Non-linear release curve: rewards releasing at the right instant over just holding longest */
@@ -93,9 +99,7 @@ export interface CollisionEvent {
     | 'car_crash'
     | 'busted'
     | 'shield_break'
-    | 'death'
-    | 'fuel_empty'
-    | 'off_road';
+    | 'death';
   x: number;
   y: number;
 }
@@ -124,8 +128,9 @@ export function stepPhysics(
   // Drain fuel gradually over time (balanced to 2.8 per second down from 3.8)
   ball.fuel = Math.max(0, ball.fuel - 2.8 * dt);
   if (ball.fuel <= 0) {
+    ball.comboCount = 0;
     ball.alive = false;
-    onEvent?.({ type: 'fuel_empty', x: ball.lateralPos, y: 0.6 });
+    onEvent?.({ type: 'death', x: ball.lateralPos, y: 0.6 });
     return;
   }
 
@@ -161,17 +166,18 @@ export function stepPhysics(
     : PHYSICS_CONSTANTS.TRACK_HALF_WIDTH;
 
   if (Math.abs(ball.lateralPos) > halfWidth) {
-    if (ball.hasShield) {
-      ball.hasShield = false;
-      ball.lateralPos = Math.sign(ball.lateralPos) * (halfWidth - 0.15);
-      ball.lateralVelocity = -ball.lateralVelocity * 0.6;
-      onEvent?.({ type: 'shield_break', x: ball.lateralPos, y: 0.6 });
-    } else {
-      ball.alive = false;
-      onEvent?.({ type: 'off_road', x: ball.lateralPos, y: 0.6 });
-      return;
-    }
-  }
+        if (ball.hasShield) {
+          ball.hasShield = false;
+          ball.lateralPos = Math.sign(ball.lateralPos) * (halfWidth - 0.15);
+          ball.lateralVelocity = -ball.lateralVelocity * 0.6;
+          onEvent?.({ type: 'shield_break', x: ball.lateralPos, y: 0.6 });
+        } else {
+          ball.comboCount = 0;
+          ball.alive = false;
+          onEvent?.({ type: 'car_crash', x: ball.lateralPos, y: 0.6 });
+          return;
+        }
+      }
 
   // Check obstacle collisions and pickups in visible segments
   for (let i = 0; i < track.segments.length; i++) {
@@ -202,6 +208,8 @@ export function stepPhysics(
           const radius = ball.magnetTimer > 0 ? 0.6 : 0.28;
           if (dx < radius) {
             obs.collected = true;
+            if (obs.kind === 'coin') ball.comboCount += 1;
+            if (obs.kind === 'gem') ball.comboCount += 3;
             if (obs.kind === 'shield') ball.hasShield = true;
             if (obs.kind === 'magnet') ball.magnetTimer = 8;
             onEvent?.({ type: obs.kind, x: obsX, y: 0.6 });
@@ -219,6 +227,7 @@ export function stepPhysics(
               ball.hasShield = false;
               onEvent?.({ type: 'shield_break', x: obsX, y: 0.6 });
             } else {
+              ball.comboCount = 0;
               ball.alive = false;
               // Specific event type for car crash vs police busted
               const deathType = obs.kind === 'police' ? 'busted' : 'car_crash';

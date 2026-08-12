@@ -48,9 +48,11 @@ export default function GameScreen() {
 
 
 
+  const hasCompletedTutorial = usePlayerStore((s) => s.hasCompletedTutorial);
+
   const handleStartGame = () => {
     setHasStartedFirstRun(true);
-    startRun('endless');
+    startRun('endless', !hasCompletedTutorial);
   };
 
   const handleStartDailyGame = () => {

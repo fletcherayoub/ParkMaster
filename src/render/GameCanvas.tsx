@@ -1,22 +1,22 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, View, Text as RNText, useWindowDimensions } from 'react-native';
 import {
   Canvas,
   Circle,
-  DashPathEffect,
-  Group,
-  Image,
   Path,
-  Rect,
   Skia,
-  SkImage,
+  Group,
+  Rect,
+  DashPathEffect,
+  Image,
   useImage,
+  SkImage,
 } from '@shopify/react-native-skia';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Text as RNText, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { SharedValue, useDerivedValue, useSharedValue } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import { useSharedValue, useDerivedValue, SharedValue } from 'react-native-reanimated';
 
 import { SKINS } from '../data/skins';
-import { CollisionEvent, onPressIn, onPressOut, PHYSICS_CONSTANTS, stepPhysics } from '../engine/physics';
+import { CollisionEvent, onPressIn, onPressOut, stepPhysics, PHYSICS_CONSTANTS, getComboMultiplier } from '../engine/physics';
 import { SegmentObstacle } from '../engine/segments/types';
 import { usePlayerStore } from '../state/usePlayerStore';
 import { useRunStore } from '../state/useRunStore';
@@ -39,7 +39,7 @@ interface PopupText {
 }
 
 /** Crash/busted animation flash overlay type */
-type CrashFlashType = null | 'car_crash' | 'busted' | 'fuel_empty' | 'off_road';
+type CrashFlashType = null | 'car_crash' | 'busted';
 
 interface CarImages {
   /** Index 0-8 maps to car1…car9 */
@@ -72,9 +72,6 @@ function AnimatedObstacle({
   SCREEN_H,
   carImages,
 }: AnimatedObstacleProps) {
-  // Early return before hooks to avoid hook order issues
-  if (obs.collected) return null;
-
   const [flashState, setFlashState] = useState(0);
 
   useEffect(() => {
@@ -99,6 +96,8 @@ function AnimatedObstacle({
   }
 
   const screenX = (0.5 + currentX * 0.5) * SCREEN_W;
+
+  if (obs.collected) return null;
 
   if (obs.kind === 'coin') {
     const coinImg = carImages.coin;
@@ -321,7 +320,7 @@ const THEMES: Theme[] = [
 
 export function GameCanvas() {
   const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
-  const TRACK_VISUAL_WIDTH = SCREEN_W * 0.6; // Reduced from 0.7 to 0.6 to match stricter physics boundaries
+  const TRACK_VISUAL_WIDTH = SCREEN_W * 0.7;
 
   const isPlaying = useRunStore((s) => s.isPlaying);
   const endRun = useRunStore((s) => s.endRun);
@@ -462,13 +461,15 @@ export function GameCanvas() {
       }
 
       if (event.type === 'coin') {
-        addCoins(1);
+        const multiplier = useRunStore.getState().comboMultiplier;
+        addCoins(multiplier);
         soundEngine.playCoinSound();
-        triggerPopup('+1 🪙', '#FFD54F', screenX, 0.65);
+        triggerPopup(`+${multiplier} 🪙`, '#FFD54F', screenX, 0.65);
       } else if (event.type === 'gem') {
-        addCoins(5);
+        const multiplier = useRunStore.getState().comboMultiplier;
+        addCoins(5 * multiplier);
         soundEngine.playCoinSound();
-        triggerPopup('+5 💎', '#B388FF', screenX, 0.65);
+        triggerPopup(`+${5 * multiplier} 💎`, '#B388FF', screenX, 0.65);
       } else if (event.type === 'fuel') {
         soundEngine.playCoinSound();
         triggerPopup('+45 ⛽ FUEL!', '#FFD54F', screenX, 0.65);
@@ -489,25 +490,11 @@ export function GameCanvas() {
         soundEngine.playCarCrashSFX();
         setCrashFlash('car_crash');
         triggerPopup('💥 CRASH!', '#FF4444', screenX, 0.65);
-        useRunStore.getState().setDeathReason('crash');
-      } else if (event.type === 'off_road') {
-        soundEngine.stopBGM();
-        soundEngine.playCarCrashSFX();
-        setCrashFlash('off_road');
-        triggerPopup('🛣️ OFF ROAD!', '#FF4444', screenX, 0.65);
-        useRunStore.getState().setDeathReason('crash');
       } else if (event.type === 'busted') {
         soundEngine.stopBGM();
         soundEngine.playBustedSFX();
         setCrashFlash('busted');
         triggerPopup('🚨 BUSTED!', '#2979FF', screenX, 0.65);
-        useRunStore.getState().setDeathReason('busted');
-      } else if (event.type === 'fuel_empty') {
-        soundEngine.stopBGM();
-        soundEngine.playOutOfFuelSFX();
-        setCrashFlash('fuel_empty');
-        triggerPopup('⛽ OUT OF FUEL!', '#FFA000', screenX, 0.65);
-        useRunStore.getState().setDeathReason('fuel');
       } else if (event.type === 'death') {
         soundEngine.stopBGM();
         soundEngine.playCrashSound();
@@ -567,6 +554,7 @@ export function GameCanvas() {
       if (ball.alive && !isPaused) {
         soundEngine.startEngine();
         stepPhysics(ball, track.getVisibleSegments(), dt, Date.now(), handleCollisionEvent);
+        useRunStore.getState().setComboMultiplier(getComboMultiplier(ball));
         track.update(ball.distance);
 
         ballPx.value = (0.5 + ball.lateralPos * 0.5) * SCREEN_W;
@@ -846,28 +834,6 @@ export function GameCanvas() {
               </View>
             </View>
           )}
-
-          {crashFlash === 'fuel_empty' && (
-            <View style={styles.crashOverlay} pointerEvents="none">
-              <View style={styles.fuelFlash} />
-              <View style={styles.crashContent}>
-                <RNText style={styles.fuelEmoji}>⛽</RNText>
-                <RNText style={styles.fuelTitle}>OUT OF FUEL!</RNText>
-                <RNText style={styles.crashSubtitle}>Your tank is empty</RNText>
-              </View>
-            </View>
-          )}
-
-          {crashFlash === 'off_road' && (
-            <View style={styles.crashOverlay} pointerEvents="none">
-              <View style={styles.offRoadFlash} />
-              <View style={styles.crashContent}>
-                <RNText style={styles.offRoadEmoji}>🛣️</RNText>
-                <RNText style={styles.offRoadTitle}>OFF ROAD!</RNText>
-                <RNText style={styles.crashSubtitle}>You left the highway</RNText>
-              </View>
-            </View>
-          )}
         </View>
       </GestureDetector>
     </View>
@@ -928,40 +894,6 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: '900',
     color: '#2979FF',
-    letterSpacing: 4,
-    textShadowColor: '#000',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 8,
-  },
-  fuelFlash: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(255, 160, 0, 0.4)',
-  },
-  fuelEmoji: {
-    fontSize: 72,
-    marginBottom: 8,
-  },
-  fuelTitle: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#FFA000',
-    letterSpacing: 4,
-    textShadowColor: '#000',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 8,
-  },
-  offRoadFlash: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(255, 68, 68, 0.4)',
-  },
-  offRoadEmoji: {
-    fontSize: 72,
-    marginBottom: 8,
-  },
-  offRoadTitle: {
-    fontSize: 48,
-    fontWeight: '900',
-    color: '#FF4444',
     letterSpacing: 4,
     textShadowColor: '#000',
     textShadowOffset: { width: 2, height: 2 },

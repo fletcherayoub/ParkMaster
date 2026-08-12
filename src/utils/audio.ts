@@ -1,4 +1,4 @@
-import { AudioPlayer, createAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, AudioPlayer } from 'expo-audio';
 import { usePlayerStore } from '../state/usePlayerStore';
 
 class SoundEngine {
@@ -11,7 +11,6 @@ class SoundEngine {
   private bustedPlayer: AudioPlayer | null = null;
   private coinPlayer: AudioPlayer | null = null;
   private enginePlayer: AudioPlayer | null = null;
-  private outOfFuelPlayer: AudioPlayer | null = null;
   private isEnginePlaying = false;
 
   public toggleMute(): boolean {
@@ -44,11 +43,11 @@ class SoundEngine {
     if (this.bustedPlayer) {
       this.bustedPlayer.volume = this.isMuted ? 0 : finalSoundVol;
     }
+    if (this.coinPlayer) {
+      this.coinPlayer.volume = this.isMuted ? 0 : finalSoundVol;
+    }
     if (this.enginePlayer) {
       this.enginePlayer.volume = this.isMuted ? 0 : finalSoundVol * 0.35;
-    }
-    if (this.outOfFuelPlayer) {
-      this.outOfFuelPlayer.volume = this.isMuted ? 0 : finalSoundVol;
     }
   }
 
@@ -128,7 +127,7 @@ class SoundEngine {
     if (this.isMuted) return;
     try {
       if (!this.coinPlayer) {
-        return;
+        this.coinPlayer = createAudioPlayer(require('../../assets/audio/CoinCollectSound Effect.mp3'));
       }
       const { soundVolume } = usePlayerStore.getState();
       this.coinPlayer.volume = soundVolume;
@@ -171,22 +170,6 @@ class SoundEngine {
       this.bustedPlayer.play();
     } catch (e) {
       console.warn('Busted SFX error:', e);
-    }
-  }
-
-  /** Play the out of fuel sound effect */
-  public playOutOfFuelSFX() {
-    if (this.isMuted) return;
-    try {
-      const { soundVolume } = usePlayerStore.getState();
-      if (!this.outOfFuelPlayer) {
-        this.outOfFuelPlayer = createAudioPlayer(require('../../assets/audio/outofFuelSound.mp3'));
-      }
-      this.outOfFuelPlayer.volume = soundVolume;
-      this.outOfFuelPlayer.seekTo(0);
-      this.outOfFuelPlayer.play();
-    } catch (e) {
-      console.warn('Out of fuel SFX error:', e);
     }
   }
 

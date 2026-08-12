@@ -14,6 +14,7 @@ export function HUD({ onOpenShop }: Props) {
   const score = useRunStore((s) => s.score);
   const coinsThisRun = useRunStore((s) => s.coinsThisRun);
   const ball = useRunStore((s) => s.ball);
+  const comboMultiplier = useRunStore((s) => s.comboMultiplier);
 
   const [isMuted, setIsMuted] = useState(soundEngine.getIsMuted());
 
@@ -25,13 +26,18 @@ export function HUD({ onOpenShop }: Props) {
   return (
     <View style={styles.bar}>
       <View style={styles.leftGroup}>
-        <View style={styles.statPill}>
+        <View style={[styles.statPill, (ball?.fuel ?? 100) < 25 && styles.fuelCritical]}>
           <Text style={styles.icon}>⛽</Text>
-          <Text style={styles.statVal}>{Math.ceil(ball?.fuel ?? 100)}%</Text>
+          <Text style={[styles.statVal, (ball?.fuel ?? 100) < 25 && styles.fuelCriticalVal]}>
+            {Math.ceil(ball?.fuel ?? 100)}%
+          </Text>
         </View>
         <View style={styles.statPill}>
           <Text style={styles.icon}>🏁</Text>
           <Text style={styles.statVal}>{score}</Text>
+          {comboMultiplier > 1 && (
+            <Text style={styles.comboTxt}>x{comboMultiplier}</Text>
+          )}
         </View>
         <View style={styles.statPill}>
           <Text style={styles.icon}>🪙</Text>
@@ -134,5 +140,21 @@ const styles = StyleSheet.create({
     color: '#0B0D12',
     fontSize: 12,
     fontWeight: '900',
+  },
+  comboTxt: {
+    color: '#FFD54F',
+    fontSize: 12,
+    fontWeight: '900',
+    marginLeft: 4,
+    textShadowColor: '#FFD54F88',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+  },
+  fuelCritical: {
+    borderColor: '#FF1744',
+    backgroundColor: '#FF174422',
+  },
+  fuelCriticalVal: {
+    color: '#FF1744',
   },
 });

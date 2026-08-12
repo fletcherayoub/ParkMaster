@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BallState, createInitialBallState } from '../engine/physics';
+import { BallState, createInitialBallState, getComboMultiplier } from '../engine/physics';
 import { TrackGenerator } from '../engine/trackGenerator';
 
 interface RunState {
@@ -10,14 +10,14 @@ interface RunState {
   isPlaying: boolean;
   isPaused: boolean;
   runMode: 'endless' | 'daily';
-  deathReason: 'fuel' | 'crash' | 'busted' | null;
+  comboMultiplier: number;
 
   startRun: (mode: 'endless' | 'daily') => void;
   endRun: () => void;
   addCoins: (n: number) => void;
   setScore: (n: number) => void;
   setPaused: (paused: boolean) => void;
-  setDeathReason: (reason: 'fuel' | 'crash' | 'busted' | null) => void;
+  setComboMultiplier: (m: number) => void;
 }
 
 export const useRunStore = create<RunState>((set, get) => ({
@@ -28,7 +28,7 @@ export const useRunStore = create<RunState>((set, get) => ({
   isPlaying: false,
   isPaused: false,
   runMode: 'endless',
-  deathReason: null,
+  comboMultiplier: 1,
 
   startRun: (mode) =>
     set({
@@ -39,7 +39,7 @@ export const useRunStore = create<RunState>((set, get) => ({
       isPlaying: true,
       isPaused: false,
       runMode: mode,
-      deathReason: null,
+      comboMultiplier: 1,
     }),
 
   endRun: () => set({ isPlaying: false, isPaused: false }),
@@ -50,5 +50,5 @@ export const useRunStore = create<RunState>((set, get) => ({
 
   setPaused: (paused) => set({ isPaused: paused }),
 
-  setDeathReason: (reason) => set({ deathReason: reason }),
+  setComboMultiplier: (m) => set({ comboMultiplier: m }),
 }));

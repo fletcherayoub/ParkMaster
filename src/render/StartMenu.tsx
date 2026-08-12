@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { MISSIONS } from '../data/missions';
+import React, { useState } from 'react';
+import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import { usePlayerStore } from '../state/usePlayerStore';
+import { MISSIONS } from '../data/missions';
 import { soundEngine } from '../utils/audio';
 
 interface Props {
@@ -27,43 +27,6 @@ export function StartMenu({ onStartGame, onStartDailyGame, onOpenShop }: Props) 
 
   const [activeTab, setActiveTab] = useState<'race' | 'missions' | 'settings'>('race');
 
-  // Animation values
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(50));
-  const [scaleAnim] = useState(new Animated.Value(0.9));
-  const [titleScaleAnim] = useState(new Animated.Value(0.8));
-
-  // Opening animation
-  useEffect(() => {
-    Animated.sequence([
-      Animated.delay(100),
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.spring(titleScaleAnim, {
-        toValue: 1,
-        tension: 30,
-        friction: 7,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
   const handleSoundVolumeChange = (vol: number) => {
     setSoundVolume(vol);
     soundEngine.updateVolumeSettings(undefined, vol);
@@ -76,25 +39,10 @@ export function StartMenu({ onStartGame, onStartDailyGame, onOpenShop }: Props) 
 
   return (
     <View style={styles.overlay}>
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [
-              { translateY: slideAnim },
-              { scale: scaleAnim },
-            ],
-          },
-        ]}
-      >
+      <View style={styles.content}>
         {/* Title Group */}
-        <Animated.Text style={[styles.subhead, { transform: [{ scale: titleScaleAnim }] }]}>
-          HIGHWAY CHASE
-        </Animated.Text>
-        <Animated.Text style={[styles.title, { transform: [{ scale: titleScaleAnim }] }]}>
-          HIGHWAY RUSH
-        </Animated.Text>
+        <Text style={styles.subhead}>HIGHWAY CHASE</Text>
+        <Text style={styles.title}>HIGHWAY RUSH</Text>
 
         {/* Tab Selector */}
         <View style={styles.tabContainer}>
@@ -257,7 +205,7 @@ export function StartMenu({ onStartGame, onStartDailyGame, onOpenShop }: Props) 
             </View>
           </View>
         )}
-      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -281,11 +229,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#292E42',
-    shadowColor: '#4FD1FF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
   },
   subhead: {
     color: '#4FD1FF',
@@ -293,19 +236,13 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
     fontWeight: '900',
     marginBottom: 4,
-    textShadowColor: '#4FD1FF',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
   },
   title: {
     color: '#EAEAF0',
     fontSize: 34,
     fontWeight: '900',
     letterSpacing: 2,
-    marginBottom: 24,
-    textShadowColor: '#000',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 8,
+    marginBottom: 16,
   },
   tabContainer: {
     flexDirection: 'row',

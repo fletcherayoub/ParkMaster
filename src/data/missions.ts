@@ -2,7 +2,7 @@ export interface Mission {
   id: string;
   name: string;
   description: string;
-  targetKey: 'distance' | 'coins' | 'score';
+  targetKey: 'distance' | 'coins' | 'score' | 'near_misses';
   targetValue: number;
   reward: number;
 }
@@ -31,5 +31,29 @@ export const MISSIONS: Mission[] = [
     targetKey: 'score',
     targetValue: 1000,
     reward: 250,
+  },
+  {
+    id: 'near_miss_10',
+    name: 'Close Shave',
+    description: 'Perform 10 near misses',
+    targetKey: 'near_misses',
+    targetValue: 10,
+    reward: 200,
+  },
+  {
+    id: 'dist_3000',
+    name: 'Marathoner',
+    description: 'Reach 3,000m total distance',
+    targetKey: 'distance',
+    targetValue: 3000,
+    reward: 500,
+  },
+  {
+    id: 'coins_200',
+    name: 'Treasure Hunter',
+    description: 'Collect 200 coins/gems',
+    targetKey: 'coins',
+    targetValue: 200,
+    reward: 350,
   },
 ];

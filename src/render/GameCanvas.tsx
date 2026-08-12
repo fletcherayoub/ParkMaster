@@ -89,6 +89,8 @@ function AnimatedObstacle({
     return SCREEN_H * 0.65 - distFromBall * 1.6;
   });
 
+  const cyOffset = useDerivedValue(() => cy.value + 6);
+
   let currentX = obs.x;
   if (obs.kind === 'police' && obs.amplitude && obs.speed) {
     const nowMs = Date.now();
@@ -242,7 +244,6 @@ function AnimatedObstacle({
     const W = 56;
     const H = 80;
     const policeImg = carImages.police;
-    const cyOffset = useDerivedValue(() => cy.value + 6);
 
     return (
       <Group>
@@ -731,9 +732,7 @@ export function GameCanvas() {
               <DashPathEffect intervals={[24, 24]} phase={roadPhase} />
             </Path>
 
-            {/* Neon glowing aura borders */}
             <Path path={trackBorderPath} color={`${currentTheme.border}33`} style="stroke" strokeWidth={14} />
-            {/* Primary border line */}
             <Path path={trackBorderPath} color={currentTheme.border} style="stroke" strokeWidth={4} />
 
             {activeSegmentData.segments.map((seg, sIdx) => {

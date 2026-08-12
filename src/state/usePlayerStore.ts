@@ -82,8 +82,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   hydrate: () =>
     set({
-      // Set hydrated: true so subscribers (e.g. useDailyReward) know all
-      // values below are real MMKV data, not the zero-value defaults.
       hydrated: true,
       coins: load('coins', 0),
       gems: load('gems', 0),
@@ -143,20 +141,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   claimDailyReward: () => {
     const { lastPlayedDate, streakDays } = get();
     const today = todayKey();
-    if (lastPlayedDate === today) return null; // already claimed today
+    if (lastPlayedDate === today) return null;
 
-    // Build "yesterday" using the same local-date logic as todayKey() so the
-    // comparison is consistent (mixing toISOString UTC with local todayKey
-    // would silently break the streak for users not in UTC).
     const yd = new Date(Date.now() - 86400000);
     const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
 
     const continuingStreak = lastPlayedDate === yesterday;
     const nextStreak = continuingStreak ? streakDays + 1 : 1;
 
-    // Escalating reward over a 7-day cycle.
-    // Day 1 = 20, Day 2 = 30 … Day 7 = 80, then loops.
-    // Fix: use (nextStreak - 1) % 7 so Day 7 = index 6 = +60, NOT 7%7=0 = +0.
     const coinsAwarded = 20 + ((nextStreak - 1) % 7) * 10;
 
     const nextCoins = get().coins + coinsAwarded;

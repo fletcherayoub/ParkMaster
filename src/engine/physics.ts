@@ -99,6 +99,7 @@ export interface CollisionEvent {
     | 'car_crash'
     | 'busted'
     | 'shield_break'
+    | 'out_of_fuel'
     | 'death';
   x: number;
   y: number;
@@ -130,7 +131,7 @@ export function stepPhysics(
   if (ball.fuel <= 0) {
     ball.comboCount = 0;
     ball.alive = false;
-    onEvent?.({ type: 'death', x: ball.lateralPos, y: 0.6 });
+    onEvent?.({ type: 'out_of_fuel', x: ball.lateralPos, y: 0.6 });
     return;
   }
 

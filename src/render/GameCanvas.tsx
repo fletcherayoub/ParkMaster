@@ -214,8 +214,8 @@ function AnimatedObstacle({
       </Group>
     );
   } else if (obs.kind === 'car') {
-    // Pick the variant image (carVariant is 1-9, fallback to 1)
-    const variantIdx = ((obs.carVariant ?? 1) - 1) % 9;
+    // Pick the variant image (carVariant is 1-10, fallback to 1)
+    const variantIdx = ((obs.carVariant ?? 1) - 1) % 10;
     const carImg = carImages.cars[variantIdx];
     const W = 52;
     const H = 72;
@@ -313,6 +313,19 @@ interface Theme {
   centerLine: string;
 }
 
+function hslToHex(h: number, s: number, l: number): string {
+  l /= 100;
+  const a = s * Math.min(l, 1 - l) / 100;
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
 const THEMES: Theme[] = [
   { bg: '#0D0F17', road: '#161924', border: '#4FD1FF', centerLine: '#3B425E' },
   { bg: '#170E1B', road: '#23162D', border: '#FF7A59', centerLine: '#54366A' },
@@ -350,6 +363,8 @@ export function GameCanvas() {
   const themeIdxRef = useRef(0);
   const currentTheme = THEMES[themeIdx];
 
+  const [dynamicBorderColor, setDynamicBorderColor] = useState(currentTheme.border);
+
   // Vehicle steering tilt
   const ballRotation = useSharedValue(0);
 
@@ -370,6 +385,7 @@ export function GameCanvas() {
   const rawCar7 = useImage(require('../../assets/cars/car7.png'));
   const rawCar8 = useImage(require('../../assets/cars/car8.png'));
   const rawCar9 = useImage(require('../../assets/cars/car9.png'));
+  const rawCar10 = useImage(require('../../assets/cars/car10.png'));
   const rawPolice = useImage(require('../../assets/cars/policeman.png'));
   const rawBike = useImage(require('../../assets/cars/bike1.png'));
   const rawFuel = useImage(require('../../assets/cars/fuel.png'));
@@ -380,7 +396,7 @@ export function GameCanvas() {
 
   const carImages = useMemo<CarImages>(
     () => ({
-      cars: [rawCar1, rawCar2, rawCar3, rawCar4, rawCar5, rawCar6, rawCar7, rawCar8, rawCar9],
+      cars: [rawCar1, rawCar2, rawCar3, rawCar4, rawCar5, rawCar6, rawCar7, rawCar8, rawCar9, rawCar10],
       police: rawPolice,
       bike: rawBike,
       fuel: rawFuel,
@@ -389,7 +405,7 @@ export function GameCanvas() {
       shield: rawShield,
       gem: rawGem,
     }),
-    [rawCar1, rawCar2, rawCar3, rawCar4, rawCar5, rawCar6, rawCar7, rawCar8, rawCar9, rawPolice, rawBike, rawFuel, rawCoin, rawMagnet, rawShield, rawGem]
+    [rawCar1, rawCar2, rawCar3, rawCar4, rawCar5, rawCar6, rawCar7, rawCar8, rawCar9, rawCar10, rawPolice, rawBike, rawFuel, rawCoin, rawMagnet, rawShield, rawGem]
   );
 
   // Track Borders
@@ -496,9 +512,10 @@ export function GameCanvas() {
         soundEngine.playBustedSFX();
         setCrashFlash('busted');
         triggerPopup('🚨 BUSTED!', '#2979FF', screenX, 0.65);
-      } else if (event.type === 'death') {
+      } else if (event.type === 'out_of_fuel') {
         soundEngine.stopBGM();
-        soundEngine.playCrashSound();
+        soundEngine.playOutOfFuelSound();
+        triggerPopup('⛽ OUT OF FUEL!', '#FFA000', screenX, 0.65);
       }
     },
     [addCoins, triggerPopup, SCREEN_W, SCREEN_H]
@@ -580,6 +597,13 @@ export function GameCanvas() {
         if (nextIdx !== themeIdxRef.current) {
           themeIdxRef.current = nextIdx;
           setThemeIdx(nextIdx);
+        }
+
+        // Cycle LED border color continuously with distance
+        const hue = (dist / 2000 * 360) % 360;
+        const nextBorderColor = hslToHex(hue, 100, 60);
+        if (nextBorderColor !== dynamicBorderColor) {
+          setDynamicBorderColor(nextBorderColor);
         }
 
         // Particle Trail update
@@ -732,8 +756,8 @@ export function GameCanvas() {
               <DashPathEffect intervals={[24, 24]} phase={roadPhase} />
             </Path>
 
-            <Path path={trackBorderPath} color={`${currentTheme.border}33`} style="stroke" strokeWidth={14} />
-            <Path path={trackBorderPath} color={currentTheme.border} style="stroke" strokeWidth={4} />
+            <Path path={trackBorderPath} color={`${dynamicBorderColor}33`} style="stroke" strokeWidth={14} />
+            <Path path={trackBorderPath} color={dynamicBorderColor} style="stroke" strokeWidth={4} />
 
             {activeSegmentData.segments.map((seg, sIdx) => {
               const segStartDist = activeSegmentData.segmentStartDistance[sIdx];

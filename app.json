@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Highway Traffic",
+    "name": "highway Traffic",
     "slug": "gameParking",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "highwayTraffic",

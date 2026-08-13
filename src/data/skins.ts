@@ -124,4 +124,15 @@ export const SKINS: Skin[] = [
     description: 'Ultimate rocket-boosted pink supercar. The pinnacle.',
     image: require('../../assets/cars/car9.png'),
   },
+  {
+    id: 'car10',
+    name: 'Neon Overlord',
+    cost: 5000,
+    color: '#00E5FF',
+    trailColor: '#00E5FF88',
+    glowColor: '#00E5FF44',
+    symbol: '👑',
+    description: 'The final car. Cyber neon beast that rules the highway.',
+    image: require('../../assets/cars/car10.png'),
+  },
 ];

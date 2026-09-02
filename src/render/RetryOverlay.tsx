@@ -5,10 +5,12 @@ import { useRunStore } from '../state/useRunStore';
 
 interface Props {
   onRetry: () => void;
+  onContinue?: () => void;
+  canContinue?: boolean;
   onOpenShop?: () => void;
 }
 
-export function RetryOverlay({ onRetry, onOpenShop }: Props) {
+export function RetryOverlay({ onRetry, onContinue, canContinue = true, onOpenShop }: Props) {
   const score = useRunStore((s) => s.score);
   const coinsThisRun = useRunStore((s) => s.coinsThisRun);
   const bestScore = usePlayerStore((s) => s.bestScore);
@@ -39,6 +41,12 @@ export function RetryOverlay({ onRetry, onOpenShop }: Props) {
         </View>
 
         <View style={styles.actionRow}>
+          {onContinue && canContinue && (
+            <Pressable style={styles.continueButton} onPress={onContinue}>
+              <Text style={styles.continueText}>🎬 WATCH AD TO CONTINUE</Text>
+            </Pressable>
+          )}
+
           <Pressable style={styles.retryButton} onPress={onRetry}>
             <Text style={styles.retryText}>PLAY AGAIN</Text>
           </Pressable>
@@ -108,6 +116,14 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
+  continueButton: {
+    backgroundColor: '#FFD54F',
+    paddingVertical: 16,
+    borderRadius: 24,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  continueText: { color: '#0B0D12', fontSize: 15, fontWeight: '900', letterSpacing: 1 },
   retryButton: {
     backgroundColor: '#4FD1FF',
     paddingVertical: 16,

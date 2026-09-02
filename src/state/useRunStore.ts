@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { BallState, createInitialBallState, getComboMultiplier } from '../engine/physics';
+import { BallState, createInitialBallState, reviveBallState } from '../engine/physics';
 import { TrackGenerator } from '../engine/trackGenerator';
 
 interface RunState {
@@ -13,6 +13,7 @@ interface RunState {
   comboMultiplier: number;
 
   startRun: (mode: 'endless' | 'daily') => void;
+  continueRun: () => void;
   endRun: () => void;
   addCoins: (n: number) => void;
   setScore: (n: number) => void;
@@ -41,6 +42,13 @@ export const useRunStore = create<RunState>((set, get) => ({
       runMode: mode,
       comboMultiplier: 1,
     }),
+
+  continueRun: () =>
+    set((s) => ({
+      ball: reviveBallState(s.ball),
+      isPlaying: true,
+      isPaused: false,
+    })),
 
   endRun: () => set({ isPlaying: false, isPaused: false }),
 

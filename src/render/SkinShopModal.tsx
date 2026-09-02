@@ -1,7 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RewardedAd, RewardedAdEventType, AdEventType } from 'react-native-google-mobile-ads';
 import { SKINS, Skin } from '../data/skins';
 import { usePlayerStore } from '../state/usePlayerStore';
+import { AD_UNITS } from '../utils/ads';
+
+const rewardedAd = RewardedAd.createForAdRequest(AD_UNITS.rewarded, {
+  requestNonPersonalizedAdsOnly: true,
+});
 
 interface Props {
   visible: boolean;
@@ -10,10 +16,46 @@ interface Props {
 
 export function SkinShopModal({ visible, onClose }: Props) {
   const coins = usePlayerStore((s) => s.coins);
+  const addCoins = usePlayerStore((s) => s.addCoins);
   const ownedSkins = usePlayerStore((s) => s.ownedSkins);
   const equippedSkin = usePlayerStore((s) => s.equippedSkin);
   const unlockSkin = usePlayerStore((s) => s.unlockSkin);
   const equipSkin = usePlayerStore((s) => s.equipSkin);
+
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const unsubscribeLoaded = rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
+      setLoaded(true);
+    });
+
+    const unsubscribeEarned = rewardedAd.addAdEventListener(
+      RewardedAdEventType.EARNED_REWARD,
+      (reward) => {
+        const bonus = reward.amount || 200;
+        addCoins(bonus);
+      }
+    );
+
+    const unsubscribeClosed = rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
+      setLoaded(false);
+      rewardedAd.load();
+    });
+
+    rewardedAd.load();
+
+    return () => {
+      unsubscribeLoaded();
+      unsubscribeEarned();
+      unsubscribeClosed();
+    };
+  }, [addCoins]);
+
+  const handleWatchAd = () => {
+    if (loaded) {
+      rewardedAd.show();
+    }
+  };
 
   const handleSelect = (skin: Skin) => {
     const isOwned = ownedSkins.includes(skin.id);
@@ -38,9 +80,18 @@ export function SkinShopModal({ visible, onClose }: Props) {
               <Text style={styles.title}>GARAGE & CARS</Text>
               <Text style={styles.balance}>🪙 {coins.toLocaleString()} Coins</Text>
             </View>
-            <Pressable style={styles.closeBtn} onPress={onClose}>
-              <Text style={styles.closeTxt}>✕</Text>
-            </Pressable>
+            <View style={styles.headerRight}>
+              <Pressable
+                style={[styles.rewardAdBtn, !loaded && styles.rewardAdBtnDisabled]}
+                onPress={handleWatchAd}
+                disabled={!loaded}
+              >
+                <Text style={styles.rewardAdTxt}>{loaded ? '🎬 +200 COINS' : '⏳ LOADING AD...'}</Text>
+              </Pressable>
+              <Pressable style={styles.closeBtn} onPress={onClose}>
+                <Text style={styles.closeTxt}>✕</Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Skins Grid */}
@@ -134,6 +185,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rewardAdBtn: {
+    backgroundColor: '#FFD54F',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+  },
+  rewardAdBtnDisabled: {
+    backgroundColor: '#2D3245',
+  },
+  rewardAdTxt: {
+    color: '#0B0D12',
+    fontSize: 12,
+    fontWeight: '800',
   },
   title: {
     color: '#8A8FA3',

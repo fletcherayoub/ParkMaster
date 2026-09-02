@@ -58,6 +58,19 @@ export function createInitialBallState(): BallState {
   };
 }
 
+export function reviveBallState(ball: BallState): BallState {
+  return {
+    ...ball,
+    alive: true,
+    lateralPos: 0, // Reset to center lane
+    lateralVelocity: 0,
+    targetLateralPos: null,
+    fuel: 100, // Refill fuel to 100%
+    hasShield: true, // Give a temporary shield to clear nearby hazards
+    forwardSpeed: Math.max(PHYSICS_CONSTANTS.BASE_FORWARD_SPEED, ball.forwardSpeed * 0.8), // Slightly reduce speed for safe recovery
+  };
+}
+
 export function getComboMultiplier(ball: BallState): number {
   return Math.min(10, 1 + Math.floor(ball.comboCount / 5));
 }

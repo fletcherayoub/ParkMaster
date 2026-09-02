@@ -109,6 +109,7 @@ export interface CollisionEvent {
     | 'fuel'
     | 'car'
     | 'police'
+    | 'near_miss'
     | 'car_crash'
     | 'busted'
     | 'shield_break'
@@ -248,6 +249,11 @@ export function stepPhysics(
               onEvent?.({ type: deathType, x: obsX, y: 0.6 });
               return;
             }
+          } else if (dx >= 0.22 && dx < 0.44 && !obs.nearMissFlagged) {
+            // Near-miss trigger! Close call dodging traffic
+            obs.nearMissFlagged = true;
+            ball.comboCount += 2; // Extra combo points for dangerous near-miss!
+            onEvent?.({ type: 'near_miss', x: obsX, y: 0.6 });
           }
         }
       }

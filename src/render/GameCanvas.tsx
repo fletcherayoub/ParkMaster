@@ -480,39 +480,52 @@ export function GameCanvas() {
       if (event.type === 'coin') {
         const multiplier = useRunStore.getState().comboMultiplier;
         addCoins(multiplier);
+        soundEngine.triggerHaptic('light');
         soundEngine.playCoinSound();
         triggerPopup(`+${multiplier} 🪙`, '#FFD54F', screenX, 0.65);
       } else if (event.type === 'gem') {
         const multiplier = useRunStore.getState().comboMultiplier;
         addCoins(5 * multiplier);
+        soundEngine.triggerHaptic('light');
         soundEngine.playCoinSound();
         triggerPopup(`+${5 * multiplier} 💎`, '#B388FF', screenX, 0.65);
+      } else if (event.type === 'near_miss') {
+        soundEngine.playNearMissSound();
+        triggerPopup('🔥 NEAR MISS! +2 COMBO', '#FF7A59', screenX, 0.65);
       } else if (event.type === 'fuel') {
+        soundEngine.triggerHaptic('light');
         soundEngine.playCoinSound();
         triggerPopup('+45 ⛽ FUEL!', '#FFD54F', screenX, 0.65);
       } else if (event.type === 'police') {
+        soundEngine.triggerHaptic('heavy');
         soundEngine.playCrashSound();
         triggerPopup('BUSTED! 🚓', '#FF1744', screenX, 0.65);
       } else if (event.type === 'shield') {
+        soundEngine.triggerHaptic('light');
         soundEngine.playCoinSound();
         triggerPopup('RADAR SHIELD! 🛡️', '#4FD1FF', screenX, 0.65);
       } else if (event.type === 'magnet') {
+        soundEngine.triggerHaptic('light');
         soundEngine.playCoinSound();
         triggerPopup('COIN MAGNET! 🧲', '#5CFFB1', screenX, 0.65);
       } else if (event.type === 'shield_break') {
+        soundEngine.triggerHaptic('medium');
         soundEngine.playCrashSound();
         triggerPopup('SHIELD BROKEN! 💥', '#FF7A59', screenX, 0.65);
       } else if (event.type === 'car_crash') {
+        soundEngine.triggerHaptic('heavy');
         soundEngine.stopBGM();
         soundEngine.playCarCrashSFX();
         setCrashFlash('car_crash');
         triggerPopup('💥 CRASH!', '#FF4444', screenX, 0.65);
       } else if (event.type === 'busted') {
+        soundEngine.triggerHaptic('heavy');
         soundEngine.stopBGM();
         soundEngine.playBustedSFX();
         setCrashFlash('busted');
         triggerPopup('🚨 BUSTED!', '#2979FF', screenX, 0.65);
       } else if (event.type === 'out_of_fuel') {
+        soundEngine.triggerHaptic('medium');
         soundEngine.stopBGM();
         soundEngine.playOutOfFuelSound();
         triggerPopup('⛽ OUT OF FUEL!', '#FFA000', screenX, 0.65);

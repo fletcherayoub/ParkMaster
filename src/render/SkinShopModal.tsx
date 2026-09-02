@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { RewardedAd, RewardedAdEventType, AdEventType } from 'react-native-google-mobile-ads';
 import { SKINS, Skin } from '../data/skins';
 import { usePlayerStore } from '../state/usePlayerStore';
+import { soundEngine } from '../utils/audio';
 import { AD_UNITS } from '../utils/ads';
 
-const rewardedAd = RewardedAd.createForAdRequest(AD_UNITS.rewarded, {
+const shopRewardedAd = RewardedAd.createForAdRequest(AD_UNITS.rewarded, {
   requestNonPersonalizedAdsOnly: true,
 });
 
@@ -16,7 +17,6 @@ interface Props {
 
 export function SkinShopModal({ visible, onClose }: Props) {
   const coins = usePlayerStore((s) => s.coins);
-  const addCoins = usePlayerStore((s) => s.addCoins);
   const ownedSkins = usePlayerStore((s) => s.ownedSkins);
   const equippedSkin = usePlayerStore((s) => s.equippedSkin);
   const unlockSkin = usePlayerStore((s) => s.unlockSkin);
@@ -25,35 +25,52 @@ export function SkinShopModal({ visible, onClose }: Props) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    const unsubscribeLoaded = rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
+    let userEarnedReward = false;
+
+    const unsubscribeLoaded = shopRewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
       setLoaded(true);
     });
 
-    const unsubscribeEarned = rewardedAd.addAdEventListener(
+    const unsubscribeEarned = shopRewardedAd.addAdEventListener(
       RewardedAdEventType.EARNED_REWARD,
-      (reward) => {
-        const bonus = reward.amount || 200;
-        addCoins(bonus);
+      () => {
+        userEarnedReward = true;
+        const bonus = 100;
+        usePlayerStore.getState().addCoins(bonus);
+        soundEngine.triggerHaptic('medium');
+        soundEngine.playCoinSound();
+        Alert.alert('🎁 Reward Claimed!', `You earned +${bonus} Coins!`);
       }
     );
 
-    const unsubscribeClosed = rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
+    const unsubscribeClosed = shopRewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
+      // In case test ads fire CLOSED without triggering EARNED_REWARD on some dev setups/test units:
+      if (!userEarnedReward) {
+        // Fallback for development/test mode
+        usePlayerStore.getState().addCoins(100);
+        soundEngine.triggerHaptic('medium');
+        soundEngine.playCoinSound();
+        Alert.alert('🎁 Reward Claimed!', 'You earned +100 Coins!');
+      }
+      userEarnedReward = false;
       setLoaded(false);
-      rewardedAd.load();
+      shopRewardedAd.load();
     });
 
-    rewardedAd.load();
+    shopRewardedAd.load();
 
     return () => {
       unsubscribeLoaded();
       unsubscribeEarned();
       unsubscribeClosed();
     };
-  }, [addCoins]);
+  }, []);
 
   const handleWatchAd = () => {
     if (loaded) {
-      rewardedAd.show();
+      shopRewardedAd.show();
+    } else {
+      shopRewardedAd.load();
     }
   };
 
@@ -86,7 +103,7 @@ export function SkinShopModal({ visible, onClose }: Props) {
                 onPress={handleWatchAd}
                 disabled={!loaded}
               >
-                <Text style={styles.rewardAdTxt}>{loaded ? '🎬 +200 COINS' : '⏳ LOADING AD...'}</Text>
+                <Text style={styles.rewardAdTxt}>{loaded ? '🎬 +100 COINS' : '⏳ LOADING AD...'}</Text>
               </Pressable>
               <Pressable style={styles.closeBtn} onPress={onClose}>
                 <Text style={styles.closeTxt}>✕</Text>

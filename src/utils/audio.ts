@@ -1,3 +1,4 @@
+import { Vibration } from 'react-native';
 import { createAudioPlayer, AudioPlayer } from 'expo-audio';
 import { usePlayerStore } from '../state/usePlayerStore';
 
@@ -10,9 +11,18 @@ class SoundEngine {
   private crashPlayer: AudioPlayer | null = null;
   private bustedPlayer: AudioPlayer | null = null;
   private coinPlayer: AudioPlayer | null = null;
+  private nearMissPlayer: AudioPlayer | null = null;
   private outOfFuelPlayer: AudioPlayer | null = null;
   private enginePlayer: AudioPlayer | null = null;
   private isEnginePlaying = false;
+
+  public triggerHaptic(type: 'light' | 'medium' | 'heavy' = 'light') {
+    try {
+      if (type === 'light') Vibration.vibrate(30);
+      else if (type === 'medium') Vibration.vibrate(70);
+      else if (type === 'heavy') Vibration.vibrate([0, 100, 50, 150]);
+    } catch {}
+  }
 
   public toggleMute(): boolean {
     this.isMuted = !this.isMuted;
@@ -137,6 +147,21 @@ class SoundEngine {
       this.coinPlayer.volume = soundVolume;
       this.coinPlayer.seekTo(0);
       this.coinPlayer.play();
+    } catch {}
+  }
+
+  /** Near miss zoom/swoosh sound effect */
+  public playNearMissSound() {
+    this.triggerHaptic('light');
+    if (this.isMuted) return;
+    try {
+      if (!this.nearMissPlayer) {
+        this.nearMissPlayer = createAudioPlayer(require('../../assets/audio/CoinCollectSound Effect.mp3'));
+      }
+      const { soundVolume } = usePlayerStore.getState();
+      this.nearMissPlayer.volume = soundVolume;
+      this.nearMissPlayer.seekTo(0);
+      this.nearMissPlayer.play();
     } catch {}
   }
 

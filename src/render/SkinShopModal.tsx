@@ -86,6 +86,17 @@ export function SkinShopModal({ visible, onClose }: Props) {
     }
   };
 
+  const carUpgrades = usePlayerStore((s) => s.carUpgrades);
+  const upgradeCar = usePlayerStore((s) => s.upgradeCar);
+
+  const handleUpgrade = (carId: string, stat: 'topSpeed' | 'handling' | 'fuelCapacity', cost: number) => {
+    const success = upgradeCar(carId, stat, cost);
+    if (success) {
+      soundEngine.triggerHaptic('medium');
+      soundEngine.playCoinSound();
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -111,12 +122,21 @@ export function SkinShopModal({ visible, onClose }: Props) {
             </View>
           </View>
 
-          {/* Skins Grid */}
+          {/* Skins & Upgrades Grid */}
           <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
             {SKINS.map((skin) => {
               const isOwned = ownedSkins.includes(skin.id);
               const isEquipped = equippedSkin === skin.id;
               const canAfford = coins >= skin.cost;
+
+              const upgrades = carUpgrades[skin.id] || { topSpeed: 0, handling: 0, fuelCapacity: 0 };
+              const currentSpeedLvl = (skin.topSpeed || 1) + upgrades.topSpeed;
+              const currentHandlingLvl = (skin.handling || 1) + upgrades.handling;
+              const currentFuelLvl = (skin.fuelCapacity || 1) + upgrades.fuelCapacity;
+
+              const speedUpgradeCost = 150 + upgrades.topSpeed * 100;
+              const handlingUpgradeCost = 150 + upgrades.handling * 100;
+              const fuelUpgradeCost = 150 + upgrades.fuelCapacity * 100;
 
               return (
                 <View
@@ -142,6 +162,60 @@ export function SkinShopModal({ visible, onClose }: Props) {
                     <View style={styles.info}>
                       <Text style={styles.skinName}>{skin.name}</Text>
                       <Text style={styles.desc}>{skin.description}</Text>
+                    </View>
+                  </View>
+
+                  {/* Car Performance Stat Bars & Upgrades */}
+                  <View style={styles.statsContainer}>
+                    {/* Speed Stat */}
+                    <View style={styles.statRow}>
+                      <Text style={styles.statLabel}>⚡ TOP SPEED ({currentSpeedLvl}/10)</Text>
+                      <View style={styles.statBarBg}>
+                        <View style={[styles.statBarFill, { width: `${(currentSpeedLvl / 10) * 100}%`, backgroundColor: '#FF7A59' }]} />
+                      </View>
+                      {isOwned && upgrades.topSpeed < 5 && (
+                        <Pressable
+                          style={[styles.upgradeBtn, coins < speedUpgradeCost && styles.upgradeBtnDisabled]}
+                          onPress={() => handleUpgrade(skin.id, 'topSpeed', speedUpgradeCost)}
+                          disabled={coins < speedUpgradeCost}
+                        >
+                          <Text style={styles.upgradeBtnTxt}>+1 🪙{speedUpgradeCost}</Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    {/* Handling Stat */}
+                    <View style={styles.statRow}>
+                      <Text style={styles.statLabel}>🎯 HANDLING ({currentHandlingLvl}/10)</Text>
+                      <View style={styles.statBarBg}>
+                        <View style={[styles.statBarFill, { width: `${(currentHandlingLvl / 10) * 100}%`, backgroundColor: '#5CFFB1' }]} />
+                      </View>
+                      {isOwned && upgrades.handling < 5 && (
+                        <Pressable
+                          style={[styles.upgradeBtn, coins < handlingUpgradeCost && styles.upgradeBtnDisabled]}
+                          onPress={() => handleUpgrade(skin.id, 'handling', handlingUpgradeCost)}
+                          disabled={coins < handlingUpgradeCost}
+                        >
+                          <Text style={styles.upgradeBtnTxt}>+1 🪙{handlingUpgradeCost}</Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    {/* Fuel Capacity Stat */}
+                    <View style={styles.statRow}>
+                      <Text style={styles.statLabel}>⛽ FUEL TANK ({currentFuelLvl}/10)</Text>
+                      <View style={styles.statBarBg}>
+                        <View style={[styles.statBarFill, { width: `${(currentFuelLvl / 10) * 100}%`, backgroundColor: '#FFD54F' }]} />
+                      </View>
+                      {isOwned && upgrades.fuelCapacity < 5 && (
+                        <Pressable
+                          style={[styles.upgradeBtn, coins < fuelUpgradeCost && styles.upgradeBtnDisabled]}
+                          onPress={() => handleUpgrade(skin.id, 'fuelCapacity', fuelUpgradeCost)}
+                          disabled={coins < fuelUpgradeCost}
+                        >
+                          <Text style={styles.upgradeBtnTxt}>+1 🪙{fuelUpgradeCost}</Text>
+                        </Pressable>
+                      )}
                     </View>
                   </View>
 
@@ -291,6 +365,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
     lineHeight: 17,
+  },
+  statsContainer: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderColor: '#2D3245',
+    gap: 8,
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  statLabel: {
+    color: '#8A8FA3',
+    fontSize: 10,
+    fontWeight: '800',
+    width: 110,
+  },
+  statBarBg: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#141722',
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2B3044',
+  },
+  statBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  upgradeBtn: {
+    backgroundColor: '#4FD1FF',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+  },
+  upgradeBtnDisabled: {
+    backgroundColor: '#2A2E3D',
+    opacity: 0.5,
+  },
+  upgradeBtnTxt: {
+    color: '#0B0D12',
+    fontSize: 10,
+    fontWeight: '900',
   },
   cardBottom: {
     marginTop: 12,

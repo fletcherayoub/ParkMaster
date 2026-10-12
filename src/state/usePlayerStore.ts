@@ -19,6 +19,8 @@ interface PlayerState {
   musicVolume: number;
   completedMissions: string[];
   missionProgress: Record<string, number>;
+  /** Car performance upgrades map: { carId: { topSpeed: level, handling: level, fuelCapacity: level } } */
+  carUpgrades: Record<string, { topSpeed: number; handling: number; fuelCapacity: number }>;
 
   hasCompletedTutorial: boolean;
 
@@ -27,6 +29,7 @@ interface PlayerState {
   spendCoins: (n: number) => boolean;
   unlockSkin: (id: string, cost: number) => boolean;
   equipSkin: (id: string) => void;
+  upgradeCar: (carId: string, stat: 'topSpeed' | 'handling' | 'fuelCapacity', cost: number) => boolean;
   reportRunEnd: (score: number, mode?: 'endless' | 'daily') => void;
   claimDailyReward: () => { streakDays: number; coinsAwarded: number } | null;
   setSoundVolume: (v: number) => void;
@@ -78,6 +81,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   musicVolume: 0.5,
   completedMissions: [],
   missionProgress: {},
+  carUpgrades: {},
   hasCompletedTutorial: false,
 
   hydrate: () =>
@@ -95,6 +99,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       musicVolume: load('musicVolume', 0.5),
       completedMissions: load('completedMissions', []),
       missionProgress: load('missionProgress', {}),
+      carUpgrades: load('carUpgrades', {}),
       hasCompletedTutorial: load('hasCompletedTutorial', false),
     }),
 
@@ -128,6 +133,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   equipSkin: (id) => {
     persist({ equippedSkin: id });
     set({ equippedSkin: id });
+  },
+
+  upgradeCar: (carId, stat, cost) => {
+    const { coins, carUpgrades } = get();
+    if (coins < cost) return false;
+    const currentCarStats = carUpgrades[carId] || { topSpeed: 0, handling: 0, fuelCapacity: 0 };
+    const currentLevel = currentCarStats[stat] || 0;
+    if (currentLevel >= 5) return false; // Max level is 5
+
+    const nextCoins = coins - cost;
+    const nextCarStats = { ...currentCarStats, [stat]: currentLevel + 1 };
+    const nextCarUpgrades = { ...carUpgrades, [carId]: nextCarStats };
+
+    persist({ coins: nextCoins, carUpgrades: nextCarUpgrades });
+    set({ coins: nextCoins, carUpgrades: nextCarUpgrades });
+    return true;
   },
 
   reportRunEnd: (score, mode = 'endless') =>

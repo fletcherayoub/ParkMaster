@@ -14,10 +14,12 @@ export interface BallState {
   alive: boolean;
   lives: number; // 1 life per run
   fuel: number; // 0..100 fuel meter
+  nitro: number; // 0..100 Need For Speed style Nitro boost meter
   hasShield: boolean;
   magnetTimer: number; // seconds remaining
   shieldTimer: number;
   comboCount: number; // consecutive pickups since last crash
+  isNitroActive?: boolean;
 }
 
 export const PHYSICS_CONSTANTS = {
@@ -51,10 +53,12 @@ export function createInitialBallState(): BallState {
     alive: true,
     lives: 1, // 1 life only!
     fuel: 100, // 100% Full Fuel Tank at start!
+    nitro: 100, // 100% Full Need For Speed Nitro Tank at start!
     hasShield: false, // No free shield — earn it!
     magnetTimer: 0,
     shieldTimer: 0,
     comboCount: 0,
+    isNitroActive: false,
   };
 }
 
@@ -140,7 +144,7 @@ export function stepPhysics(
   // update timers
   if (ball.magnetTimer > 0) ball.magnetTimer = Math.max(0, ball.magnetTimer - dt);
 
-  // Drain fuel gradually over time (balanced to 2.8 per second down from 3.8)
+  // Drain fuel gradually over time
   ball.fuel = Math.max(0, ball.fuel - 2.8 * dt);
   if (ball.fuel <= 0) {
     ball.comboCount = 0;
@@ -149,12 +153,30 @@ export function stepPhysics(
     return;
   }
 
-  // forward speed ramps up over the run
+  // Need For Speed style Nitro Charge / Deplete logic
+  const isBoosting = !!ball.isNitroActive && ball.nitro > 0;
+  if (isBoosting) {
+    // Drains Nitro tank over ~3 seconds when swiping up
+    ball.nitro = Math.max(0, ball.nitro - 32 * dt);
+    if (ball.nitro <= 0) {
+      ball.isNitroActive = false;
+    }
+  } else {
+    // Recharges Nitro tank automatically while driving (takes ~8 seconds to full)
+    ball.nitro = Math.min(100, ball.nitro + 12.5 * dt);
+  }
+
+  // forward speed ramps up over the run (boosted +80% when Nitro is active)
+  const effectiveMaxSpeed = isBoosting
+    ? PHYSICS_CONSTANTS.MAX_FORWARD_SPEED * 1.8
+    : PHYSICS_CONSTANTS.MAX_FORWARD_SPEED;
+  const accel = isBoosting ? PHYSICS_CONSTANTS.FORWARD_ACCEL * 5 : PHYSICS_CONSTANTS.FORWARD_ACCEL;
+
   ball.forwardSpeed = Math.min(
-    PHYSICS_CONSTANTS.MAX_FORWARD_SPEED,
-    ball.forwardSpeed + PHYSICS_CONSTANTS.FORWARD_ACCEL * dt
+    effectiveMaxSpeed,
+    ball.forwardSpeed + accel * dt
   );
-  ball.distance += ball.forwardSpeed * dt;
+  ball.distance += (isBoosting ? ball.forwardSpeed * 1.5 : ball.forwardSpeed) * dt;
 
   // find current segment to read its curveBias/width for drift + collision
   const segment = getSegmentAtDistance(track, ball.distance);
@@ -253,6 +275,7 @@ export function stepPhysics(
             // Near-miss trigger! Close call dodging traffic
             obs.nearMissFlagged = true;
             ball.comboCount += 2; // Extra combo points for dangerous near-miss!
+            ball.nitro = Math.min(100, ball.nitro + 25); // NFS Bonus: Near miss instantly recharges +25 Nitro!
             onEvent?.({ type: 'near_miss', x: obsX, y: 0.6 });
           }
         }

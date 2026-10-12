@@ -7,6 +7,10 @@ export interface Skin {
   glowColor: string;
   symbol: string;
   description: string;
+  /** Performance Base Stats (1..5 scale) */
+  topSpeed: number;
+  handling: number;
+  fuelCapacity: number;
   /** Optional PNG image asset — if set, the car is rendered as a sprite instead of a colored circle */
   image?: any;
 }
@@ -22,6 +26,9 @@ export const SKINS: Skin[] = [
     glowColor: '#C0C0C044',
     symbol: '🏍️',
     description: 'Your trusty starter bike. Fast, light, and free.',
+    topSpeed: 2,
+    handling: 5,
+    fuelCapacity: 2,
     image: require('../../assets/cars/bike1.png'),
   },
   // ─── Car skins (car1–car9) ────────────────────────────────────────────────
@@ -34,6 +41,9 @@ export const SKINS: Skin[] = [
     glowColor: '#2979FF44',
     symbol: '🚙',
     description: 'A sleek blue sports car with white racing stripes.',
+    topSpeed: 3,
+    handling: 3,
+    fuelCapacity: 3,
     image: require('../../assets/cars/car1.png'),
   },
   {
@@ -45,6 +55,9 @@ export const SKINS: Skin[] = [
     glowColor: '#FFD54F44',
     symbol: '🚗',
     description: 'Yellow muscle car built for straight-line speed.',
+    topSpeed: 4,
+    handling: 2,
+    fuelCapacity: 3,
     image: require('../../assets/cars/car2.png'),
   },
   {
@@ -56,6 +69,9 @@ export const SKINS: Skin[] = [
     glowColor: '#E5393544',
     symbol: '🏎️',
     description: 'High-revving crimson GT with carbon aero.',
+    topSpeed: 3,
+    handling: 4,
+    fuelCapacity: 3,
     image: require('../../assets/cars/car3.png'),
   },
   {
@@ -67,6 +83,9 @@ export const SKINS: Skin[] = [
     glowColor: '#00C85344',
     symbol: '🚗',
     description: 'Green dart — corner speed is its game.',
+    topSpeed: 3,
+    handling: 5,
+    fuelCapacity: 2,
     image: require('../../assets/cars/car4.png'),
   },
   {
@@ -78,6 +97,9 @@ export const SKINS: Skin[] = [
     glowColor: '#546E7A44',
     symbol: '🚙',
     description: 'Matte dark coupe with stealth exhaust.',
+    topSpeed: 4,
+    handling: 3,
+    fuelCapacity: 4,
     image: require('../../assets/cars/car5.png'),
   },
   {
@@ -89,6 +111,9 @@ export const SKINS: Skin[] = [
     glowColor: '#FF7A5944',
     symbol: '🔥',
     description: 'High-torque muscle car built for burning rubber.',
+    topSpeed: 5,
+    handling: 3,
+    fuelCapacity: 3,
     image: require('../../assets/cars/car6.png'),
   },
   {
@@ -100,6 +125,9 @@ export const SKINS: Skin[] = [
     glowColor: '#5CFFB144',
     symbol: '⚡',
     description: 'Electric mint stealth car with ultra-responsive handling.',
+    topSpeed: 4,
+    handling: 5,
+    fuelCapacity: 4,
     image: require('../../assets/cars/car7.png'),
   },
   {
@@ -111,6 +139,9 @@ export const SKINS: Skin[] = [
     glowColor: '#B388FF44',
     symbol: '🏎️',
     description: 'Futuristic purple hypercar with plasma exhaust.',
+    topSpeed: 5,
+    handling: 4,
+    fuelCapacity: 4,
     image: require('../../assets/cars/car8.png'),
   },
   {
@@ -122,6 +153,9 @@ export const SKINS: Skin[] = [
     glowColor: '#FF2A7544',
     symbol: '🚀',
     description: 'Ultimate rocket-boosted pink supercar. The pinnacle.',
+    topSpeed: 5,
+    handling: 5,
+    fuelCapacity: 4,
     image: require('../../assets/cars/car9.png'),
   },
   {
@@ -133,6 +167,9 @@ export const SKINS: Skin[] = [
     glowColor: '#00E5FF44',
     symbol: '👑',
     description: 'The final car. Cyber neon beast that rules the highway.',
+    topSpeed: 5,
+    handling: 5,
+    fuelCapacity: 5,
     image: require('../../assets/cars/car10.png'),
   },
 ];

@@ -80,7 +80,7 @@ export default function GameScreen() {
       unsubscribeRewardedEarned();
       unsubscribeRewardedClosed();
     };
-  }, [hydrate, continueRun]);
+  }, []);
 
   // Hook into the phone's back button
   useEffect(() => {

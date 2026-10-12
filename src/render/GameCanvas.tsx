@@ -434,6 +434,15 @@ export function GameCanvas() {
     windLinesRef.current = initialWind;
   }, [SCREEN_W, SCREEN_H, ballPx, ballPy, scrollDistance, leftBorderX, TRACK_VISUAL_WIDTH, ballRotation]);
 
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach((t) => clearTimeout(t));
+      timeoutsRef.current = [];
+    };
+  }, []);
+
   const triggerPopup = useCallback(
     (text: string, color: string, x: number, y: number) => {
       const newPopup: PopupText = {
@@ -444,9 +453,10 @@ export function GameCanvas() {
         y: y * SCREEN_H - 20,
       };
       setPopups((prev) => [...prev.slice(-4), newPopup]);
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setPopups((prev) => prev.filter((p) => p.id !== newPopup.id));
       }, 850);
+      timeoutsRef.current.push(timer);
     },
     [SCREEN_W, SCREEN_H]
   );
@@ -575,6 +585,8 @@ export function GameCanvas() {
     let lastScoreInt = 0;
     let lastFirstStartDist = -1;
     let lastScoreUiUpdate = 0;
+    let lastParticleUpdate = 0;
+    let lastWindUpdate = 0;
 
     const loop = (now: number) => {
       const dt = Math.min((now - lastTime) / 1000, 0.1);
@@ -619,34 +631,54 @@ export function GameCanvas() {
           setDynamicBorderColor(nextBorderColor);
         }
 
-        // Particle Trail update
-        const currentParticles = [...particlesRef.current];
+        // Particle Trail & Nitro Exhaust Flame update (capped at 20 max for memory safety)
+        const currentParticles = particlesRef.current;
         for (let i = currentParticles.length - 1; i >= 0; i--) {
           const p = currentParticles[i];
           p.x += p.vx * dt;
           p.y += p.vy * dt;
-          p.life -= dt * 2.2;
+          p.life -= dt * (p.color ? 3.5 : 2.2);
           if (p.life <= 0) {
             currentParticles.splice(i, 1);
           }
         }
-        if (Math.random() < 0.45) {
-          currentParticles.push({
-            id: Math.random().toString(),
-            x: ballPx.value + (Math.random() - 0.5) * 8,
-            y: ballPy.value + 16,
-            vx: (Math.random() - 0.5) * 15,
-            vy: ball.forwardSpeed * 0.35 + Math.random() * 20,
-            life: 1.0,
-            size: 3 + Math.random() * 4,
-          });
+        
+        if (currentParticles.length < 20) {
+          // Spawn cyan/blue Nitro flame particles behind vehicle when Boosting
+          if (ball.isNitroActive) {
+            for (let k = 0; k < 2; k++) {
+              currentParticles.push({
+                id: Math.random().toString(),
+                x: ballPx.value + (Math.random() - 0.5) * 12,
+                y: ballPy.value + 28,
+                vx: (Math.random() - 0.5) * 30,
+                vy: 120 + Math.random() * 80,
+                life: 1.0,
+                size: 5 + Math.random() * 6,
+                color: Math.random() > 0.4 ? '#00E5FF' : '#2979FF',
+              });
+            }
+          } else if (Math.random() < 0.45) {
+            currentParticles.push({
+              id: Math.random().toString(),
+              x: ballPx.value + (Math.random() - 0.5) * 8,
+              y: ballPy.value + 16,
+              vx: (Math.random() - 0.5) * 15,
+              vy: ball.forwardSpeed * 0.35 + Math.random() * 20,
+              life: 1.0,
+              size: 3 + Math.random() * 4,
+            });
+          }
         }
-        particlesRef.current = currentParticles;
-        setParticles(currentParticles);
+        // Throttle React state particle updates to 30ms to maintain smooth 60FPS physics while halving React re-renders
+        if (now - lastParticleUpdate > 30) {
+          lastParticleUpdate = now;
+          setParticles([...currentParticles]);
+        }
 
         // Hyper speed wind lines
         if (ball.forwardSpeed > 150) {
-          const nextWind = [...windLinesRef.current];
+          const nextWind = windLinesRef.current;
           for (let i = 0; i < nextWind.length; i++) {
             const w = nextWind[i];
             w.y += w.speed * dt * (ball.forwardSpeed / 100);
@@ -657,8 +689,10 @@ export function GameCanvas() {
               w.speed = 350 + Math.random() * 250;
             }
           }
-          windLinesRef.current = nextWind;
-          setWindLines(nextWind);
+          if (now - lastWindUpdate > 30) {
+            lastWindUpdate = now;
+            setWindLines([...nextWind]);
+          }
         }
 
         const scoreInt = Math.floor(ball.distance);
@@ -716,18 +750,32 @@ export function GameCanvas() {
         .onBegin((e) => {
           if (useRunStore.getState().isPaused) return;
           const normX = (e.x / SCREEN_W - 0.5) * 2;
-          useRunStore.getState().ball.targetLateralPos = normX;
-          onPressIn(useRunStore.getState().ball, Date.now());
+          const ball = useRunStore.getState().ball;
+          ball.targetLateralPos = normX;
+          onPressIn(ball, Date.now());
         })
         .onUpdate((e) => {
           if (useRunStore.getState().isPaused) return;
           const normX = (e.x / SCREEN_W - 0.5) * 2;
-          useRunStore.getState().ball.targetLateralPos = normX;
+          const ball = useRunStore.getState().ball;
+          ball.targetLateralPos = normX;
+
+          // Detect Swipe Up gesture (vertical speed < -300 or dragging upward > 40px)
+          if (e.velocityY < -350 || e.translationY < -40) {
+            if (!ball.isNitroActive && ball.fuel > 5) {
+              ball.isNitroActive = true;
+              soundEngine.triggerHaptic('medium');
+            }
+          } else if (e.translationY >= -15) {
+            ball.isNitroActive = false;
+          }
         })
         .onFinalize(() => {
           if (useRunStore.getState().isPaused) return;
-          useRunStore.getState().ball.targetLateralPos = null;
-          onPressOut(useRunStore.getState().ball, Date.now());
+          const ball = useRunStore.getState().ball;
+          ball.targetLateralPos = null;
+          ball.isNitroActive = false;
+          onPressOut(ball, Date.now());
         }),
     [SCREEN_W]
   );

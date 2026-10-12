@@ -11,8 +11,6 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
-      "enableMinifyInReleaseBuilds": true,
-      "enableShrinkResourcesInReleaseBuilds": true,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -43,6 +41,15 @@
         {
           "androidAppId": "ca-app-pub-3598932750971152~6128203260",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
         }
       ]
     ],

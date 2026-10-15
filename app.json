@@ -2,7 +2,7 @@
   "expo": {
     "name": "highway Traffic",
     "slug": "gameParking",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "highwayTraffic",
@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "versionCode": 10,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -18,7 +19,13 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.highwayTraffic.game"
+      "package": "com.highwayTraffic.game",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+      ]
     },
     "web": {
       "output": "static",
@@ -28,9 +35,20 @@
       "expo-router",
       "expo-dev-client",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "enablePngCrunchInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.google.android.gms.ads.** { *; }\n-keep class com.google.android.gms.internal.** { *; }\n-keep class com.shopify.reactnative.skia.** { *; }\n-keep class com.facebook.react.** { *; }\n-keep class com.swmansion.reanimated.** { *; }\n-keep class expo.modules.** { *; }"
+          }
+        }
+      ],
+      [
         "expo-splash-screen",
         {
-          "backgroundColor": "#000000",
+          "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
@@ -42,16 +60,6 @@
           "androidAppId": "ca-app-pub-3598932750971152~6128203260",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-dontshrink\n-dontoptimize"
-          }
-        }
       ]
     ],
     "experiments": {
@@ -61,7 +69,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b3d95d7a-4fdd-49a3-8fa6-3f51a1f58958"
+        "projectId": "67facaf6-ccbd-4325-a82b-7aacd448596e"
       }
     }
   }

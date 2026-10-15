@@ -41,3 +41,5 @@ example
 # generated native folders
 /ios
 /android
+NUDGE_IMPLEMENTATION_NOTES.md
+NUDGE_ARCHITECTURE.md
